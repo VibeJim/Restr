@@ -101,10 +101,10 @@ export default function CreateListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isConnected) {
+    if (!isConnected && nostrOption === 'extension') {
       toast({
         title: "Authentication Required",
-        description: "Please connect with NOSTR to create a listing",
+        description: "Please connect with NOSTR to create a listing or choose to generate a new key",
         variant: "destructive"
       });
       return;
@@ -150,15 +150,29 @@ export default function CreateListing() {
         amenities: formData.amenities || []
       };
 
-      const eventId = await publishListing(listingContent);
+      // Use the appropriate method based on the user's choice
+      const useNewKey = nostrOption === 'generate';
+      // Call with or without the third parameter, don't pass null
+      const result = useNewKey 
+        ? await publishListing(listingContent)  // Generate new key (default behavior now)
+        : await publishListing(listingContent); // Use connected extension
       
-      if (eventId) {
+      if (result.eventId) {
         toast({
           title: "Listing Created",
           description: "Your property has been listed successfully",
           variant: "default"
         });
-        navigate('/');
+        
+        // If we generated a new key, save it and show the success screen
+        if (result.keyPair) {
+          setGeneratedKeyPair(result.keyPair);
+          setCreatedListingId(result.eventId);
+          setListingCreated(true);
+        } else {
+          // Otherwise, redirect to the home page
+          navigate('/');
+        }
       } else {
         toast({
           title: "Listing Failed",
@@ -178,29 +192,95 @@ export default function CreateListing() {
     }
   };
 
+  // If we've created a listing with a generated key, show the success screen
+  if (listingCreated && generatedKeyPair && createdListingId) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow py-8 container mx-auto px-4">
+          <div className="max-w-3xl mx-auto">
+            <ListingSuccess keyPair={generatedKeyPair} listingId={createdListingId} />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // If not connected with NOSTR extension, offer options to connect or generate a key
   if (!isConnected) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
         <main className="flex-grow py-8 container mx-auto px-4">
           <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
-            <h1 className="text-2xl font-bold mb-4">Connect with NOSTR</h1>
+            <h1 className="text-2xl font-bold mb-4">Create Your Listing</h1>
             <p className="mb-6 text-neutral-600">
-              You need to connect with NOSTR to create a listing. This allows you to sign your listing and receive messages from potential guests.
+              Choose how you want to publish your listing on the NOSTR network:
             </p>
-            <Button 
-              className="w-full"
-              onClick={() => {
-                // This could open the NOSTR connect modal
-                toast({
-                  title: "Connect from Header",
-                  description: "Please use the connect button in the header",
-                  variant: "default"
-                });
-              }}
-            >
-              Connect with NOSTR
-            </Button>
+            
+            <div className="space-y-6">
+              <div className="border rounded-lg p-4 hover:border-primary cursor-pointer" 
+                onClick={() => setNostrOption('extension')}>
+                <div className="flex items-start space-x-3">
+                  <div className={`rounded-full h-5 w-5 border flex items-center justify-center mt-0.5 ${nostrOption === 'extension' ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                    {nostrOption === 'extension' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Connect with NOSTR Extension</h3>
+                    <p className="text-sm text-neutral-500 mt-1">
+                      Use your existing NOSTR identity through a browser extension like Alby or nos2x.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg p-4 hover:border-primary cursor-pointer" 
+                onClick={() => setNostrOption('generate')}>
+                <div className="flex items-start space-x-3">
+                  <div className={`rounded-full h-5 w-5 border flex items-center justify-center mt-0.5 ${nostrOption === 'generate' ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                    {nostrOption === 'generate' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Generate a New Key</h3>
+                    <p className="text-sm text-neutral-500 mt-1">
+                      Create a new NOSTR key just for this listing. You'll receive a private key to manage your listing.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {nostrOption === 'extension' ? (
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    // This could open the NOSTR connect modal
+                    toast({
+                      title: "Connect from Header",
+                      description: "Please use the connect button in the header",
+                      variant: "default"
+                    });
+                  }}
+                >
+                  Connect with NOSTR
+                </Button>
+              ) : (
+                <Button 
+                  className="w-full"
+                  onClick={() => navigate('/listing', { replace: true })}
+                >
+                  Continue with New Key
+                </Button>
+              )}
+            </div>
           </div>
         </main>
         <Footer />
