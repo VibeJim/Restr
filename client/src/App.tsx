@@ -7,12 +7,14 @@ import { NostrProvider } from "@/context/nostr-provider";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Listing from "@/pages/listing";
+import About from "@/pages/about";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/create-listing" component={Listing} />
+      <Route path="/about" component={About} />
       <Route component={NotFound} />
     </Switch>
   );
