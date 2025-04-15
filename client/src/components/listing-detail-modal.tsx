@@ -7,6 +7,7 @@ import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE, AMENITIES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
+import CalendarAvailability from './calendar-availability';
 
 interface ListingDetailModalProps {
   isOpen: boolean;
@@ -310,6 +311,18 @@ Please let me know if this property is available during these dates.
                     Show all {listing.content.amenities.length} amenities
                   </Button>
                 )}
+              </div>
+
+              {/* Calendar Availability */}
+              <div className="py-6 border-b border-neutral-200">
+                <CalendarAvailability 
+                  listing={listing}
+                  isHost={host?.pubkey === listing.pubkey}
+                  onAvailabilityChange={(availableDates) => {
+                    // If needed, we can update the booking form based on available dates
+                    console.log('Available dates:', availableDates);
+                  }}
+                />
               </div>
 
               {/* NOSTR Host Info */}

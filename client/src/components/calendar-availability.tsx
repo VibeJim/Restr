@@ -154,7 +154,8 @@ export default function CalendarAvailability({
   };
   
   // Render calendar day with appropriate status colors
-  const renderDay = (day: Date) => {
+  const renderDay = (props: any) => {
+    const day = props.date;
     const status = getStatusForDate(day);
     
     let className = '';
@@ -205,8 +206,8 @@ export default function CalendarAvailability({
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={selectedDate || undefined}
-                    onSelect={(date) => setSelectedDate(date)}
+                    selected={selectedDate}
+                    onSelect={(date) => date ? setSelectedDate(date) : setSelectedDate(null)}
                     initialFocus
                   />
                 </PopoverContent>
@@ -288,11 +289,11 @@ export default function CalendarAvailability({
               onSelect={setDate}
               className="rounded-md border"
               components={{
-                Day: ({ day, ...props }) => (
+                Day: (props) => (
                   <div {...props}>
-                    {renderDay(day)}
+                    {renderDay(props)}
                   </div>
-                ),
+                )
               }}
             />
             <div className="mt-4 flex flex-wrap gap-3">
