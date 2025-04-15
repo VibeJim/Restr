@@ -77,6 +77,12 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
       return;
     }
 
+    // Show toast immediately to indicate processing
+    toast({
+      title: "Preparing Message...",
+      description: "Initializing secure NOSTR connection",
+    });
+
     // Validate dates
     if (!checkIn || !checkOut) {
       toast({
@@ -102,10 +108,19 @@ Booking details:
 Please let me know if this property is available during these dates.
 `.trim();
       
+      toast({
+        title: "Encrypting Message...",
+        description: "Using NOSTR NIP-04 encryption standard",
+      });
+      
       // Send the encrypted message
       const result = await sendEncryptedDirectMessage(listing.pubkey, messageContent);
       
       if (result) {
+        // Close the modal
+        onClose();
+        
+        // Show success toast
         toast({
           title: "Message Sent!",
           description: "Your message has been encrypted and sent to the host. To view responses, download oxchat and use your NOSTR private key (nsec).",
@@ -114,7 +129,7 @@ Please let me know if this property is available during these dates.
       } else {
         toast({
           title: "Message Failed",
-          description: "There was an error sending your encrypted message. Please try again.",
+          description: "Unable to send encrypted message. This might be due to NOSTR relay connectivity issues or missing NIP-04 support in your extension.",
           variant: "destructive"
         });
       }
@@ -122,7 +137,7 @@ Please let me know if this property is available during these dates.
       console.error("Error sending encrypted message:", error);
       toast({
         title: "Message Error",
-        description: "Failed to send encrypted message. Make sure your NOSTR extension supports NIP-04 encryption.",
+        description: "Failed to send encrypted message. Make sure your NOSTR extension supports NIP-04 encryption. Error: " + (error instanceof Error ? error.message : "Unknown error"),
         variant: "destructive"
       });
     }
