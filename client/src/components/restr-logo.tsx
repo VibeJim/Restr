@@ -10,10 +10,20 @@ export function RestrLogoIcon({ size = 24, className = '' }: { size?: number, cl
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <rect x="2" y="4" width="20" height="16" rx="2" fill="#f59e0b" />
-      <rect x="5" y="7" width="14" height="10" rx="1" fill="white" />
-      <path d="M7 10C7 9.44772 7.44772 9 8 9H16C16.5523 9 17 9.44772 17 10V14C17 14.5523 16.5523 15 16 15H8C7.44772 15 7 14.5523 7 14V10Z" fill="#f59e0b" />
-      <path d="M11 12L13 12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Rounded pillowed rectangle background */}
+      <rect x="2" y="4" width="20" height="16" rx="4" fill="#f59e0b" />
+      
+      {/* Lightning bolt icon representing NOSTR and Bitcoin */}
+      <path d="M14.25 5L7.5 12.75H12L9.75 19L16.5 11.25H12L14.25 5Z" 
+        fill="white" 
+        stroke="white" 
+        strokeWidth="0.5" 
+        strokeLinejoin="round" 
+      />
+      
+      {/* Nostr connection points */}
+      <circle cx="8" cy="8" r="1" fill="white" />
+      <circle cx="16" cy="16" r="1" fill="white" />
     </svg>
   );
 }

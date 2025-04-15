@@ -17,7 +17,7 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-semibold mb-4">Community</h3>
             <ul className="space-y-3">
-              <li><Link href="/forum" className="text-sm text-neutral-600 hover:underline">NostrBnB community forum</Link></li>
+              <li><Link href="/forum" className="text-sm text-neutral-600 hover:underline">restr community forum</Link></li>
               <li><Link href="/host-guide" className="text-sm text-neutral-600 hover:underline">How to host responsibly</Link></li>
               <li><a href="https://nostr.com" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">NOSTR community</a></li>
             </ul>
@@ -34,7 +34,7 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-semibold mb-4">About</h3>
             <ul className="space-y-3">
-              <li><Link href="/about" className="text-sm text-neutral-600 hover:underline">How NostrBnB works</Link></li>
+              <li><Link href="/about" className="text-sm text-neutral-600 hover:underline">How restr works</Link></li>
               <li><a href="https://github.com/nostr-protocol/nostr" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">NOSTR protocol</a></li>
               <li><Link href="/careers" className="text-sm text-neutral-600 hover:underline">Careers</Link></li>
               <li><a href="https://github.com/nostrbnb" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">Open source</a></li>
@@ -43,7 +43,7 @@ export default function Footer() {
         </div>
         <div className="border-t border-neutral-200 pt-6 mt-6 flex flex-col md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-neutral-600 mb-4 md:mb-0">
-            © 2023 NostrBnB, Inc. · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link> · <Link href="/sitemap" className="hover:underline">Sitemap</Link>
+            © 2025 restr, Inc. · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link> · <Link href="/sitemap" className="hover:underline">Sitemap</Link>
           </div>
           <div className="flex items-center space-x-6">
             <div className="flex items-center">
@@ -51,8 +51,8 @@ export default function Footer() {
               <a href="#" className="text-sm font-medium hover:underline">English (US)</a>
             </div>
             <div className="flex items-center">
-              <i className="ri-money-dollar-circle-line mr-2"></i>
-              <a href="#" className="text-sm font-medium hover:underline">USD</a>
+              <i className="ri-bitcoin-fill mr-2"></i>
+              <a href="#" className="text-sm font-medium hover:underline">SATS</a>
             </div>
             <div className="flex space-x-4">
               <a href="https://github.com/nostrbnb" target="_blank" rel="noopener noreferrer" className="text-neutral-600 hover:text-primary">
