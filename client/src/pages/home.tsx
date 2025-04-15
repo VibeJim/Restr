@@ -128,7 +128,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header />
+      <Header onLocationChange={handleLocationChange} />
       <CategoryFilter onCategoryChange={handleCategoryChange} />
       <Filters onFilterChange={handleFilterChange} />
       <NostrConnectionInfo onConnectClick={openNostrModal} />
@@ -163,6 +163,7 @@ export default function Home() {
                   onClick={() => {
                     setActiveCategory('All homes');
                     setActiveFilters({});
+                    setActiveLocation('');
                   }}
                 >
                   Clear all filters
