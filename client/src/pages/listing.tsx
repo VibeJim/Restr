@@ -101,7 +101,8 @@ export default function CreateListing() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isConnected && nostrOption === 'extension') {
+    // If not connected and we haven't chosen to generate a key (or haven't progressed to form)
+    if (!isConnected && !showNostrOptions) {
       toast({
         title: "Authentication Required",
         description: "Please connect with NOSTR to create a listing or choose to generate a new key",
@@ -151,11 +152,11 @@ export default function CreateListing() {
       };
 
       // Use the appropriate method based on the user's choice
-      const useNewKey = nostrOption === 'generate';
-      // Call with or without the third parameter, don't pass null
-      const result = useNewKey 
-        ? await publishListing(listingContent)  // Generate new key (default behavior now)
-        : await publishListing(listingContent); // Use connected extension
+      const useNewKey = nostrOption === 'generate' || !isConnected;
+      console.log("Using new key:", useNewKey);
+      
+      // Always generate a new key if not connected or if explicitly chosen to do so
+      const result = await publishListing(listingContent);
       
       if (result.eventId) {
         toast({
@@ -207,8 +208,8 @@ export default function CreateListing() {
     );
   }
 
-  // If not connected with NOSTR extension, offer options to connect or generate a key
-  if (!isConnected) {
+  // If not connected with NOSTR extension and we haven't chosen to generate a key, offer options
+  if (!isConnected && !showNostrOptions) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
@@ -275,7 +276,7 @@ export default function CreateListing() {
               ) : (
                 <Button 
                   className="w-full"
-                  onClick={() => navigate('/listing', { replace: true })}
+                  onClick={() => setShowNostrOptions(true)}
                 >
                   Continue with New Key
                 </Button>
