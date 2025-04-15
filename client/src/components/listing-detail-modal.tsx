@@ -1,8 +1,8 @@
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NostrListing, NostrUser } from '@/types/nostr';
 import { useState, useEffect } from 'react';
-import { getUser } from '@/lib/nostr';
+import { getUser, sendEncryptedDirectMessage } from '@/lib/nostr';
 import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE, AMENITIES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';

@@ -673,6 +673,45 @@ export const createZapRequest = async (
   }
 };
 
+/**
+ * Creates and sends an encrypted NOSTR direct message (NIP-04)
+ * Compatible with oxchat and other NIP-04 compatible clients
+ * 
+ * @param recipientPubkey - The recipient's public key
+ * @param content - The message content to be encrypted
+ * @param relays - Array of relays to publish the event to
+ * @returns The created event if successful, or null if failed
+ */
+export const sendEncryptedDirectMessage = async (
+  recipientPubkey: string,
+  content: string,
+  relays: string[] = RELAYS
+): Promise<NostrEvent | null> => {
+  if (!window.nostr?.nip04) {
+    console.error("NIP-04 support is required for encrypted messages");
+    return null;
+  }
+  
+  try {
+    // Encrypt the content using NIP-04
+    const encryptedContent = await window.nostr.nip04.encrypt(recipientPubkey, content);
+    
+    // Create a direct message event (kind 4)
+    const dmEvent = await createSignedEvent(4, encryptedContent, [
+      ['p', recipientPubkey] // Tag with recipient's pubkey
+    ]);
+
+    if (dmEvent) {
+      // Publish to relays
+      return publishEvent(dmEvent, relays) ? dmEvent : null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error sending encrypted direct message:", error);
+    return null;
+  }
+};
+
 // Get user data including profile
 export const getUser = async (
   pubkey: string,
