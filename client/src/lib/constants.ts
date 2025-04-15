@@ -16,6 +16,7 @@ export const NOSTR_KINDS = {
   LISTING: 30001, // Custom kind for listings
   REVIEW: 30002,  // Custom kind for reviews
   BOOKING: 30003,  // Custom kind for bookings
+  CALENDAR_EVENT: 31922, // NIP-52 calendar events
   ZAP_REQUEST: 9734
 };
 

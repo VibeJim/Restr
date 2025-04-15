@@ -791,6 +791,148 @@ export const sendEncryptedDirectMessage = async (
   }
 };
 
+// Get listing calendar events
+export const getListingCalendarEvents = async (
+  listingId: string,
+  startDate?: Date,
+  endDate?: Date,
+  relays: string[] = RELAYS
+): Promise<NostrCalendarEvent[]> => {
+  return new Promise((resolve) => {
+    // Create filter for calendar events related to this listing
+    const filter: NostrFilter = {
+      kinds: [NOSTR_KINDS.CALENDAR_EVENT],
+      limit: 100, // Increase if needed for properties with many bookings
+      "#l": [listingId] // Tag with listing ID
+    };
+    
+    // Add date range filter if provided
+    if (startDate) {
+      filter.since = Math.floor(startDate.getTime() / 1000);
+    } else {
+      // Default to events from the past month
+      const defaultStart = new Date();
+      defaultStart.setMonth(defaultStart.getMonth() - 1);
+      filter.since = Math.floor(defaultStart.getTime() / 1000);
+    }
+    
+    if (endDate) {
+      filter.until = Math.floor(endDate.getTime() / 1000);
+    } else {
+      // Default to events up to 12 months in the future
+      const defaultEnd = new Date();
+      defaultEnd.setFullYear(defaultEnd.getFullYear() + 1);
+      filter.until = Math.floor(defaultEnd.getTime() / 1000);
+    }
+    
+    const calendarEvents: Map<string, NostrCalendarEvent> = new Map();
+    let timeoutId: NodeJS.Timeout;
+    
+    const { unsubscribe } = subscribeToEvents(
+      filter,
+      (event) => {
+        try {
+          const content = JSON.parse(event.content) as NostrCalendarEventContent;
+          const calendarEvent: NostrCalendarEvent = {
+            id: event.id,
+            pubkey: event.pubkey,
+            created_at: event.created_at,
+            kind: event.kind,
+            content,
+            tags: event.tags,
+            sig: event.sig
+          };
+          
+          calendarEvents.set(event.id, calendarEvent);
+        } catch (error) {
+          console.error('Error parsing calendar event:', error);
+        }
+      },
+      () => {
+        // EOSE handler
+        timeoutId = setTimeout(() => {
+          unsubscribe();
+          const results = Array.from(calendarEvents.values());
+          
+          // Sort events by start date
+          results.sort((a, b) => {
+            const dateA = new Date(a.content.startDate).getTime();
+            const dateB = new Date(b.content.startDate).getTime();
+            return dateA - dateB;
+          });
+          
+          console.log(`Found ${results.length} calendar events for listing ${listingId}`);
+          resolve(results);
+        }, 2000); // Extra time after EOSE
+      },
+      relays
+    );
+    
+    // Set timeout for the entire operation
+    setTimeout(() => {
+      unsubscribe();
+      const results = Array.from(calendarEvents.values());
+      
+      // Sort events by start date
+      results.sort((a, b) => {
+        const dateA = new Date(a.content.startDate).getTime();
+        const dateB = new Date(b.content.startDate).getTime();
+        return dateA - dateB;
+      });
+      
+      console.log(`Found ${results.length} calendar events for listing ${listingId}`);
+      resolve(results);
+    }, 10000); // 10 seconds should be enough to get most events
+  });
+};
+
+// Publish a calendar event for a listing
+export const publishCalendarEvent = async (
+  eventContent: NostrCalendarEventContent,
+  relays: string[] = RELAYS
+): Promise<{ eventId: string | null }> => {
+  try {
+    const content = JSON.stringify(eventContent);
+    
+    // Create tags for the calendar event
+    // According to NIP-52, we should have:
+    // - 'l' tag for linking to the listing
+    // - 'd' tag for the date in ISO format
+    // - 'status' tag for the event status (blocked, available, tentative, booked)
+    const tags: string[][] = [
+      ['l', eventContent.listingId], // Link to the listing
+      ['d', eventContent.startDate], // Start date in ISO format
+      ['status', eventContent.status] // Status of the date
+    ];
+    
+    // Add end date if it's a range
+    if (eventContent.endDate) {
+      tags.push(['end', eventContent.endDate]);
+    }
+    
+    // Add booking reference if it exists
+    if (eventContent.bookingId) {
+      tags.push(['booking', eventContent.bookingId]);
+    }
+    
+    // Create and sign the event
+    const event = await createSignedEvent(NOSTR_KINDS.CALENDAR_EVENT, content, tags);
+    if (!event) {
+      console.error("Failed to create signed calendar event");
+      return { eventId: null };
+    }
+    
+    // Publish the event to relays
+    const successfulRelays = await publishEvent(event, relays);
+    return { 
+      eventId: successfulRelays.length > 0 ? event.id : null
+    };
+  } catch (error) {
+    console.error('Error publishing calendar event:', error);
+    return { eventId: null };
+  }
+};
+
 // Get user data including profile
 export const getUser = async (
   pubkey: string,

@@ -86,3 +86,30 @@ export interface NostrZapRequest {
   lnurl?: string;
   [key: string]: any;
 }
+
+export interface NostrCalendarEvent {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: number; // NIP-52 defines kind 31922 for calendar events
+  content: NostrCalendarEventContent;
+  tags: string[][]; // Including date tags, listing reference
+  sig: string;
+}
+
+export interface NostrCalendarEventContent {
+  title?: string;
+  description?: string;
+  status: 'blocked' | 'available' | 'tentative' | 'booked';
+  startDate: string; // ISO format
+  endDate: string;   // ISO format
+  allDay: boolean;
+  listingId: string;
+  bookingId?: string; // Reference to a booking if status is 'booked'
+  recurring?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval: number;
+    until?: string; // ISO date
+    count?: number;
+  }
+}
