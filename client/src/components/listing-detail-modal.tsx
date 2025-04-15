@@ -296,8 +296,10 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
               <div className="sticky top-6 border border-neutral-200 rounded-xl p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="text-xl font-bold">${listing.content.price}</span>
-                    <span className="text-neutral-500"> night</span>
+                    <span className="text-xl font-bold">
+                      {listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{listing.content.price}
+                    </span>
+                    <span className="text-neutral-500"> {listing.content.currency === 'BTC' ? 'BTC' : 'sats'}/night</span>
                   </div>
                   <div className="flex items-center">
                     <i className="ri-star-fill text-xs mr-1"></i>
@@ -361,21 +363,21 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
                   <div className="mt-4 space-y-3">
                     <div className="flex justify-between">
                       <span className="underline">
-                        ${listing.content.price} x {totalNights} night{totalNights !== 1 ? 's' : ''}
+                        {listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{listing.content.price} x {totalNights} night{totalNights !== 1 ? 's' : ''}
                       </span>
-                      <span>${subTotal}</span>
+                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{subTotal}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="underline">Cleaning fee</span>
-                      <span>${cleaningFee}</span>
+                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{cleaningFee}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="underline">Service fee</span>
-                      <span>${serviceFee}</span>
+                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{serviceFee}</span>
                     </div>
                     <div className="flex justify-between pt-4 border-t border-neutral-200 font-semibold">
                       <span>Total before taxes</span>
-                      <span>${total}</span>
+                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{total}</span>
                     </div>
                   </div>
                 )}

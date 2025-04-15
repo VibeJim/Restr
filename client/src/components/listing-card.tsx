@@ -25,8 +25,9 @@ export default function ListingCard({ listing, onClick }: ListingCardProps) {
     return <ListingCardSkeleton />;
   }
 
-  const { title, location, price, images } = listing.content;
+  const { title, location, price, currency, images } = listing.content;
   const imageUrl = Array.isArray(images) && images.length > 0 ? images[0] : '';
+  const currencySymbol = currency === 'BTC' ? '₿' : 'ϟ';
 
   return (
     <div className="group cursor-pointer" onClick={() => onClick(listing)}>
@@ -53,7 +54,7 @@ export default function ListingCard({ listing, onClick }: ListingCardProps) {
           <p className="text-neutral-500 text-sm">{location}</p>
           <p className="text-neutral-500 text-sm">Available now</p>
           <p className="mt-1">
-            <span className="font-medium">${price}</span> night
+            <span className="font-medium">{currencySymbol}{price}</span> {currency === 'BTC' ? 'BTC' : 'sats'}/night
           </p>
         </div>
         <div className="flex items-center mt-1">
