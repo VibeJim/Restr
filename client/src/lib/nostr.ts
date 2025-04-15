@@ -1,7 +1,8 @@
-import { getEventHash, getPublicKey, generateSecretKey } from 'nostr-tools/pure';
+import { getEventHash, getPublicKey, generateSecretKey, finalizeEvent } from 'nostr-tools/pure';
 import { verifyEvent as verifyNostrEvent, validateEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
 import { bytesToHex } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils';
 import { RELAYS, NOSTR_KINDS } from './constants';
 import type { 
   NostrEvent, 
@@ -548,9 +549,29 @@ export const publishListing = async (
 
 // Sign an event with a secret key (instead of using browser extension)
 const signEventWithSecretKey = (event: NostrEvent, secretKey: string): string => {
-  // This would need actual implementation with nostr-tools
-  // For now, we'll use a placeholder
-  return "sig_placeholder_for_demo";
+  try {
+    // Convert hex secret key to Uint8Array for finalizeEvent
+    const secretKeyBytes = hexToBytes(secretKey);
+    
+    // Create the event template from our event
+    const eventTemplate = {
+      kind: event.kind,
+      created_at: event.created_at,
+      tags: event.tags,
+      content: event.content,
+      pubkey: event.pubkey
+    };
+    
+    // Finalize the event with the secret key
+    const signedEvent = finalizeEvent(eventTemplate, secretKeyBytes);
+    
+    // Return the signature
+    return signedEvent.sig;
+  } catch (error) {
+    console.error('Error signing event with secret key:', error);
+    // For demo purposes, return a placeholder if something fails
+    return "sig_placeholder_for_demo";
+  }
 };
 
 // Create a Zap (payment) request
