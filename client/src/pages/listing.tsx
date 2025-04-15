@@ -12,12 +12,19 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ListingSuccess from '@/components/listing-success';
 
 export default function CreateListing() {
   const { isConnected } = useNostr();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNostrOptions, setShowNostrOptions] = useState(false);
+  const [nostrOption, setNostrOption] = useState<'extension' | 'generate'>('extension');
+  const [listingCreated, setListingCreated] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState('');
+  const [generatedKeyPair, setGeneratedKeyPair] = useState<any>(null);
   
   const [formData, setFormData] = useState<Partial<NostrListingContent>>({
     title: '',

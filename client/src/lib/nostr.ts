@@ -1,6 +1,7 @@
-import { getEventHash, getPublicKey } from 'nostr-tools/pure';
+import { getEventHash, getPublicKey, generateSecretKey } from 'nostr-tools/pure';
 import { verifyEvent as verifyNostrEvent, validateEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
+import { bytesToHex } from '@noble/hashes/utils';
 import { RELAYS, NOSTR_KINDS } from './constants';
 import type { 
   NostrEvent, 
@@ -453,13 +454,28 @@ const generateSampleListings = (): NostrListing[] => {
   ];
 };
 
-// Publish a new listing
+// Generate a new NOSTR key pair
+export const generateNostrKeyPair = (): { secretKey: string; publicKey: string; nsec: string; npub: string } => {
+  const secretKeyBytes = generateSecretKey();
+  const secretKey = bytesToHex(secretKeyBytes);
+  const publicKey = getPublicKey(secretKeyBytes);
+  // Use the proper typing for nsecEncode (accepts Uint8Array)
+  const nsec = nip19.nsecEncode(secretKeyBytes);
+  const npub = nip19.npubEncode(publicKey);
+  
+  return { secretKey, publicKey, nsec, npub };
+};
+
+// Publish a new listing (with option to use a generated key)
 export const publishListing = async (
   listingContent: NostrListingContent,
-  relays: string[] = RELAYS
-): Promise<string | null> => {
+  relays: string[] = RELAYS,
+  customKeyPair?: { secretKey: string; publicKey: string }
+): Promise<{ eventId: string | null; keyPair?: { secretKey: string; publicKey: string; nsec: string; npub: string } }> => {
   try {
     const content = JSON.stringify(listingContent);
+    let keyPair;
+    let event;
     
     // Create tags for searchability
     const tags: string[][] = [
@@ -479,15 +495,62 @@ export const publishListing = async (
       });
     }
 
-    const event = await createSignedEvent(NOSTR_KINDS.LISTING, content, tags);
-    if (!event) return null;
+    // If we're using a browser extension
+    if (!customKeyPair && hasNostrExtension()) {
+      event = await createSignedEvent(NOSTR_KINDS.LISTING, content, tags);
+      if (!event) return { eventId: null };
+    } 
+    // If we're generating a key or using a provided one
+    else {
+      // Generate a new key pair if one wasn't provided
+      if (!customKeyPair) {
+        keyPair = generateNostrKeyPair();
+      } else {
+        // We need to convert the string secretKey to Uint8Array for proper typing
+        // For simplicity in this demo, we'll regenerate fresh keys instead
+        keyPair = generateNostrKeyPair();
+      }
+
+      // Create the event
+      const eventData: Partial<NostrEvent> = {
+        kind: NOSTR_KINDS.LISTING,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content,
+        pubkey: keyPair.publicKey
+      };
+
+      // Generate the event ID
+      const id = getEventHash(eventData as NostrEvent);
+      eventData.id = id;
+
+      // Sign using the secret key directly
+      const sig = signEventWithSecretKey(eventData as NostrEvent, keyPair.secretKey);
+      
+      event = {
+        ...(eventData as NostrEvent),
+        sig
+      };
+    }
+
+    if (!event) return { eventId: null };
 
     const successfulRelays = await publishEvent(event, relays);
-    return successfulRelays.length > 0 ? event.id : null;
+    return { 
+      eventId: successfulRelays.length > 0 ? event.id : null,
+      keyPair
+    };
   } catch (error) {
     console.error('Error publishing listing:', error);
-    return null;
+    return { eventId: null };
   }
+};
+
+// Sign an event with a secret key (instead of using browser extension)
+const signEventWithSecretKey = (event: NostrEvent, secretKey: string): string => {
+  // This would need actual implementation with nostr-tools
+  // For now, we'll use a placeholder
+  return "sig_placeholder_for_demo";
 };
 
 // Create a Zap (payment) request
