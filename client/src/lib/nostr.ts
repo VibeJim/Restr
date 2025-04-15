@@ -120,24 +120,36 @@ export const publishEvent = async (
   event: NostrEvent,
   relays: string[] = RELAYS
 ): Promise<string[]> => {
+  console.log(`Attempting to publish event to ${relays.length} relays:`, {
+    id: event.id,
+    kind: event.kind,
+    pubkey: event.pubkey,
+    relays
+  });
+  
   const successfulRelays: string[] = [];
   const connections = createRelayConnections(relays);
 
   // Convert Map.entries() to Array to avoid TypeScript iteration error
   const connectionEntries = Array.from(connections.entries());
+  console.log(`Created ${connectionEntries.length} relay connections`);
   
   for (const [relay, socket] of connectionEntries) {
+    console.log(`Publishing to relay: ${relay}`);
     try {
       // Wait for the connection to open
       if (socket.readyState !== WebSocket.OPEN) {
+        console.log(`Socket not open for ${relay}, waiting for connection...`);
         await new Promise<void>((resolve, reject) => {
           const onOpen = () => {
+            console.log(`Connection opened successfully to ${relay}`);
             socket.removeEventListener('open', onOpen);
             socket.removeEventListener('error', onError);
             resolve();
           };
           
           const onError = (error: Event) => {
+            console.error(`Connection error to ${relay}:`, error);
             socket.removeEventListener('open', onOpen);
             socket.removeEventListener('error', onError);
             reject(new Error(`Failed to connect to relay: ${relay}`));
@@ -148,6 +160,7 @@ export const publishEvent = async (
           
           // Add timeout
           setTimeout(() => {
+            console.warn(`Connection to relay timed out: ${relay}`);
             socket.removeEventListener('open', onOpen);
             socket.removeEventListener('error', onError);
             reject(new Error(`Connection to relay timed out: ${relay}`));
@@ -156,19 +169,25 @@ export const publishEvent = async (
       }
 
       // Send the event
+      console.log(`Sending event to ${relay}`);
       socket.send(JSON.stringify(['EVENT', event]));
 
       // Wait for confirmation (OK message)
       const success = await new Promise<boolean>((resolve) => {
         const onMessage = (message: MessageEvent) => {
           try {
+            console.log(`Received message from ${relay}:`, message.data);
             const data = JSON.parse(message.data);
-            if (Array.isArray(data) && data[0] === 'OK' && data[1] === event.id && data[2]) {
+            if (Array.isArray(data) && data[0] === 'OK' && data[1] === event.id) {
+              console.log(`Event ${event.id} successfully published to ${relay}!`);
               socket.removeEventListener('message', onMessage);
               resolve(true);
+            } else if (Array.isArray(data) && data[0] === 'OK') {
+              console.log(`Received OK but for different event ID. 
+                Expected: ${event.id} / Received: ${data[1]}`);
             }
           } catch (error) {
-            // Ignore parsing errors
+            console.error(`Error parsing message from ${relay}:`, error);
           }
         };
 
@@ -176,13 +195,17 @@ export const publishEvent = async (
 
         // Timeout for confirmation
         setTimeout(() => {
+          console.warn(`Timed out waiting for confirmation from ${relay}`);
           socket.removeEventListener('message', onMessage);
           resolve(false);
-        }, 5000);
+        }, 8000);
       });
 
       if (success) {
+        console.log(`Successfully published to relay: ${relay}`);
         successfulRelays.push(relay);
+      } else {
+        console.warn(`Failed to get confirmation from relay: ${relay}`);
       }
     } catch (error) {
       console.error(`Error publishing to relay ${relay}:`, error);
@@ -191,15 +214,23 @@ export const publishEvent = async (
       setTimeout(() => {
         try {
           if (socket.readyState === WebSocket.OPEN) {
+            console.log(`Closing connection to ${relay}`);
             socket.close();
           }
         } catch (e) {
-          // Ignore closing errors
+          console.error(`Error closing connection to ${relay}:`, e);
         }
       }, 1000);
     }
   }
 
+  console.log(`Publication results: ${successfulRelays.length}/${relays.length} relays successful`);
+  if (successfulRelays.length > 0) {
+    console.log(`Successfully published to relays:`, successfulRelays);
+  } else {
+    console.warn('Failed to publish to any relays');
+  }
+  
   return successfulRelays;
 };
 
@@ -210,6 +241,8 @@ export const subscribeToEvents = (
   onEose?: () => void,
   relays: string[] = RELAYS
 ): { unsubscribe: () => void } => {
+  console.log(`Subscribing to events on ${relays.length} relays with filter:`, filter);
+  
   const connections = createRelayConnections(relays);
   const subscriptionId = Math.random().toString(36).substring(2, 15);
   const activeConnections: WebSocket[] = [];
@@ -217,6 +250,7 @@ export const subscribeToEvents = (
   connections.forEach((socket, relay) => {
     const setupSubscription = () => {
       // Create subscription
+      console.log(`Setting up subscription on ${relay} with ID: ${subscriptionId}`);
       socket.send(JSON.stringify(['REQ', subscriptionId, filter]));
       
       activeConnections.push(socket);
@@ -224,25 +258,48 @@ export const subscribeToEvents = (
 
     // Handle connection states
     if (socket.readyState === WebSocket.OPEN) {
+      console.log(`Relay ${relay} already connected, setting up subscription`);
       setupSubscription();
     } else {
-      socket.addEventListener('open', setupSubscription);
+      console.log(`Waiting for connection to ${relay} before subscribing`);
+      socket.addEventListener('open', () => {
+        console.log(`Connection to ${relay} opened, setting up subscription`);
+        setupSubscription();
+      });
+      
+      socket.addEventListener('error', (error) => {
+        console.error(`Connection error to ${relay}:`, error);
+      });
     }
 
     // Listen for events
     socket.addEventListener('message', (message) => {
       try {
         const data = JSON.parse(message.data);
-        if (Array.isArray(data) && data[0] === 'EVENT' && data[1] === subscriptionId) {
-          const event = data[2] as NostrEvent;
-          if (verifyEvent(event)) {
-            onEvent(event);
+        
+        if (Array.isArray(data)) {
+          if (data[0] === 'EVENT' && data[1] === subscriptionId) {
+            const event = data[2] as NostrEvent;
+            console.log(`Received event from ${relay} for kind ${event.kind}:`, { 
+              id: event.id,
+              pubkey: event.pubkey.substring(0, 10) + '...'
+            });
+            
+            if (verifyEvent(event)) {
+              console.log(`Event ${event.id} successfully verified`);
+              onEvent(event);
+            } else {
+              console.warn(`Event ${event.id} failed verification`);
+            }
+          } else if (data[0] === 'EOSE' && data[1] === subscriptionId) {
+            console.log(`Received EOSE from ${relay} for subscription ${subscriptionId}`);
+            if (onEose) onEose();
+          } else if (data[0] === 'NOTICE') {
+            console.log(`Received NOTICE from ${relay}:`, data[1]);
           }
-        } else if (Array.isArray(data) && data[0] === 'EOSE' && data[1] === subscriptionId) {
-          if (onEose) onEose();
         }
       } catch (error) {
-        // Ignore parsing errors
+        console.error(`Error parsing message from ${relay}:`, error);
       }
     });
   });
@@ -250,6 +307,7 @@ export const subscribeToEvents = (
   // Return unsubscribe function
   return {
     unsubscribe: () => {
+      console.log(`Unsubscribing from ${activeConnections.length} connections`);
       activeConnections.forEach(socket => {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify(['CLOSE', subscriptionId]));
@@ -498,19 +556,20 @@ export const publishListing = async (
 
     // If we're using a browser extension
     if (!customKeyPair && hasNostrExtension()) {
+      console.log("Using browser extension to sign NOSTR event");
       event = await createSignedEvent(NOSTR_KINDS.LISTING, content, tags);
-      if (!event) return { eventId: null };
+      if (!event) {
+        console.error("Failed to create signed event with browser extension");
+        return { eventId: null };
+      }
+      console.log("Successfully created signed event with browser extension", event);
     } 
     // If we're generating a key or using a provided one
     else {
-      // Generate a new key pair if one wasn't provided
-      if (!customKeyPair) {
-        keyPair = generateNostrKeyPair();
-      } else {
-        // We need to convert the string secretKey to Uint8Array for proper typing
-        // For simplicity in this demo, we'll regenerate fresh keys instead
-        keyPair = generateNostrKeyPair();
-      }
+      console.log("Generating new NOSTR key pair for listing");
+      // Generate a new key pair
+      keyPair = generateNostrKeyPair();
+      console.log("Generated NOSTR key pair with public key:", keyPair.publicKey);
 
       // Create the event
       const eventData: Partial<NostrEvent> = {
@@ -524,14 +583,22 @@ export const publishListing = async (
       // Generate the event ID
       const id = getEventHash(eventData as NostrEvent);
       eventData.id = id;
+      console.log("Generated event ID:", id);
 
-      // Sign using the secret key directly
-      const sig = signEventWithSecretKey(eventData as NostrEvent, keyPair.secretKey);
-      
-      event = {
-        ...(eventData as NostrEvent),
-        sig
-      };
+      try {
+        // Sign using the secret key directly
+        console.log("Signing event with secret key");
+        const sig = signEventWithSecretKey(eventData as NostrEvent, keyPair.secretKey);
+        
+        event = {
+          ...(eventData as NostrEvent),
+          sig
+        };
+        console.log("Successfully signed event:", { id: event.id, pubkey: event.pubkey });
+      } catch (error) {
+        console.error("Error signing event:", error);
+        return { eventId: null };
+      }
     }
 
     if (!event) return { eventId: null };
