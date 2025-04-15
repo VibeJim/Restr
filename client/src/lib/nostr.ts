@@ -391,11 +391,16 @@ export const getUserProfile = async (
 // Fetch all listings from relays
 export const getListings = async (
   relays: string[] = RELAYS,
-  limit: number = 100
+  limit: number = 250
 ): Promise<NostrListing[]> => {
   return new Promise((resolve) => {
+    // Calculate timestamp for 7 days ago (604800 seconds)
+    const sevenDaysAgo = Math.floor(Date.now() / 1000) - 604800;
+    
+    // Use a much larger time window to get all listings from the past week
     const filter: NostrFilter = {
       kinds: [NOSTR_KINDS.LISTING],
+      since: sevenDaysAgo, // Events from 7 days ago
       limit
     };
 
@@ -438,19 +443,26 @@ export const getListings = async (
       relays
     );
 
-    // Set timeout for the entire operation
+    // Set timeout for the entire operation - using a longer timeout (30s) to ensure we get all listings
     setTimeout(() => {
       unsubscribe();
       const results = Array.from(listings.values());
       
+      // Log how many listings we found
+      console.log(`Found ${results.length} listings from the past 7 days`);
+      
+      // Sort results by creation date (newest first)
+      results.sort((a, b) => b.created_at - a.created_at);
+      
       // If no listings were found, generate some sample listings
       if (results.length === 0) {
+        console.log("No listings found, using fallback sample listings");
         const sampleListings = generateSampleListings();
         resolve(sampleListings);
       } else {
         resolve(results);
       }
-    }, 15000);
+    }, 30000);
   });
 };
 
