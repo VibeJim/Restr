@@ -253,8 +253,8 @@ export default function CalendarAvailability({
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={endDate || undefined}
-                    onSelect={(date) => setEndDate(date)}
+                    selected={endDate}
+                    onSelect={(date) => date ? setEndDate(date) : setEndDate(null)}
                     disabled={(date) => {
                       // Disable dates before the start date
                       return selectedDate ? date < selectedDate : false;
