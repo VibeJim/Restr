@@ -31,7 +31,7 @@ export default function CreateListing() {
     description: '',
     location: '',
     price: 0,
-    currency: 'USD',
+    currency: 'SATS',
     images: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'],
     beds: 1,
     bedrooms: 1,
@@ -355,7 +355,9 @@ export default function CreateListing() {
                   <div>
                     <Label htmlFor="price">Price per night</Label>
                     <div className="mt-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                        {formData.currency === 'SATS' ? 'ϟ' : '₿'}
+                      </span>
                       <Input 
                         id="price"
                         name="price"
@@ -374,15 +376,12 @@ export default function CreateListing() {
                     <select
                       id="currency"
                       name="currency"
-                      value={formData.currency || 'USD'}
+                      value={formData.currency || 'SATS'}
                       onChange={handleChange}
                       className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                     >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
+                      <option value="SATS">SATS (Satoshis)</option>
+                      <option value="BTC">BTC (Bitcoin)</option>
                     </select>
                   </div>
                   

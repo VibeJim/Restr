@@ -4,6 +4,7 @@ import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 import NostrConnectModal from './nostr-connect-modal';
 import { Button } from './ui/button';
+import { RestrLogoFull } from './restr-logo';
 
 export default function Header() {
   const { user, isConnected } = useNostr();
@@ -30,10 +31,7 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.0049 2C15.3186 2 18.0049 4.68629 18.0049 8C18.0049 9.6955 17.269 11.2047 16.0693 12.243C19.049 13.188 21.0049 15.7764 21.0049 19H15.0049C15.0049 16.7909 13.214 15 11.0049 15C8.79575 15 7.00486 16.7909 7.00486 19H1.00488C1.00488 15.7763 2.96079 13.188 5.94051 12.243C4.74082 11.2047 4.00488 9.6955 4.00488 8C4.00488 4.68629 6.69117 2 10.0049 2H12.0049ZM12.0049 4H10.0049C7.79575 4 6.00488 5.79086 6.00488 8C6.00488 10.2091 7.79575 12 10.0049 12H12.0049C14.214 12 16.0049 10.2091 16.0049 8C16.0049 5.79086 14.214 4 12.0049 4Z"></path>
-              </svg>
-              <span className="ml-2 text-xl font-bold text-primary">NostrBnB</span>
+              <RestrLogoFull />
             </Link>
           </div>
 
@@ -94,7 +92,7 @@ export default function Header() {
                     {!isConnected && (
                       <div className="px-4 py-3 border-b border-neutral-200">
                         <div className="font-semibold mb-1">Connect with NOSTR</div>
-                        <p className="text-sm text-neutral-500 mb-3">Use your NOSTR identity to access NostrBnB</p>
+                        <p className="text-sm text-neutral-500 mb-3">Use your NOSTR identity to access restr</p>
                         <Button 
                           className="w-full bg-primary hover:bg-primary-600 text-white font-medium py-2 px-4 rounded-lg transition"
                           onClick={openNostrModal}
