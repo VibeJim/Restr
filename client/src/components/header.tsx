@@ -1,15 +1,21 @@
-import { useState } from 'react';
-import { Link } from 'wouter';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'wouter';
 import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 import NostrConnectModal from './nostr-connect-modal';
 import { Button } from './ui/button';
 import { RestrLogoFull } from './restr-logo';
 
-export default function Header() {
+export interface HeaderProps {
+  onLocationChange?: (location: string) => void;
+}
+
+export default function Header({ onLocationChange }: HeaderProps) {
   const { user, isConnected } = useNostr();
+  const [, setLocation] = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNostrModal, setShowNostrModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   const toggleUserMenu = () => {
     setShowUserMenu(!showUserMenu);
@@ -22,6 +28,23 @@ export default function Header() {
 
   const closeNostrModal = () => {
     setShowNostrModal(false);
+  };
+  
+  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const location = e.target.value;
+    setSelectedLocation(location);
+    
+    // If we have the callback, use it
+    if (onLocationChange) {
+      onLocationChange(location);
+    }
+    
+    // Update URL with the search param
+    if (location) {
+      setLocation(`/?location=${location}`);
+    } else {
+      setLocation('/');
+    }
   };
 
   return (
@@ -38,16 +61,34 @@ export default function Header() {
           {/* Search Bar */}
           <div className="hidden md:flex items-center justify-center flex-1 max-w-md mx-4">
             <div className="relative w-full">
-              <button className="flex items-center justify-between w-full px-4 py-2 text-sm text-left border border-neutral-300 rounded-full shadow-sm bg-white hover:shadow-md transition-shadow">
-                <div className="flex items-center divide-x divide-neutral-300">
-                  <span className="pr-3 font-medium">Anywhere</span>
-                  <span className="px-3 font-medium">Any week</span>
-                  <span className="pl-3 text-neutral-500">Add guests</span>
-                </div>
-                <div className="bg-primary text-white p-2 rounded-full">
+              <div className="flex items-center justify-between w-full px-4 py-2 text-sm text-left border border-neutral-300 rounded-full shadow-sm bg-white hover:shadow-md transition-shadow">
+                <select 
+                  className="w-full bg-transparent border-none focus:outline-none appearance-none cursor-pointer"
+                  aria-label="Select a city"
+                  value={selectedLocation}
+                  onChange={handleLocationChange}
+                >
+                  <option value="" disabled>Select a location...</option>
+                  <option value="new-york">New York</option>
+                  <option value="paris">Paris</option>
+                  <option value="london">London</option>
+                  <option value="tokyo">Tokyo</option>
+                  <option value="sydney">Sydney</option>
+                  <option value="berlin">Berlin</option>
+                  <option value="rome">Rome</option>
+                  <option value="dubai">Dubai</option>
+                  <option value="amsterdam">Amsterdam</option>
+                  <option value="bangkok">Bangkok</option>
+                  <option value="singapore">Singapore</option>
+                  <option value="madrid">Madrid</option>
+                  <option value="barcelona">Barcelona</option>
+                  <option value="hong-kong">Hong Kong</option>
+                  <option value="san-francisco">San Francisco</option>
+                </select>
+                <div className="bg-primary text-white p-2 rounded-full flex-shrink-0 ml-2">
                   <i className="ri-search-line text-sm"></i>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -151,10 +192,32 @@ export default function Header() {
 
         {/* Mobile Search (Visible on small screens) */}
         <div className="block md:hidden pb-4">
-          <button className="flex items-center w-full px-4 py-3 bg-white rounded-full border border-neutral-300 shadow-sm">
+          <div className="flex items-center w-full px-4 py-2 bg-white rounded-full border border-neutral-300 shadow-sm">
             <i className="ri-search-line text-neutral-500 mr-3"></i>
-            <span className="text-sm text-neutral-800">Where to?</span>
-          </button>
+            <select 
+              className="w-full bg-transparent border-none focus:outline-none appearance-none text-sm"
+              aria-label="Select a city"
+              value={selectedLocation}
+              onChange={handleLocationChange}
+            >
+              <option value="" disabled>Select a location...</option>
+              <option value="new-york">New York</option>
+              <option value="paris">Paris</option>
+              <option value="london">London</option>
+              <option value="tokyo">Tokyo</option>
+              <option value="sydney">Sydney</option>
+              <option value="berlin">Berlin</option>
+              <option value="rome">Rome</option>
+              <option value="dubai">Dubai</option>
+              <option value="amsterdam">Amsterdam</option>
+              <option value="bangkok">Bangkok</option>
+              <option value="singapore">Singapore</option>
+              <option value="madrid">Madrid</option>
+              <option value="barcelona">Barcelona</option>
+              <option value="hong-kong">Hong Kong</option>
+              <option value="san-francisco">San Francisco</option>
+            </select>
+          </div>
         </div>
       </div>
 

@@ -20,6 +20,7 @@ export default function Home() {
   const [showNostrModal, setShowNostrModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All homes');
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
+  const [activeLocation, setActiveLocation] = useState('');
   const [visibleListings, setVisibleListings] = useState(8);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // Apply filters when listings, activeCategory, or activeFilters change
+    // Apply filters when listings, activeCategory, activeFilters, or activeLocation change
     let filtered = [...listings];
 
     // Filter by category
@@ -81,8 +82,20 @@ export default function Home() {
       }
     }
 
+    // Filter by location
+    if (activeLocation) {
+      filtered = filtered.filter(listing => {
+        const listingLocation = listing.content.location || '';
+        return listingLocation.toLowerCase().includes(activeLocation.toLowerCase().replace('-', ' '));
+      });
+    }
+
     setFilteredListings(filtered);
-  }, [listings, activeCategory, activeFilters]);
+  }, [listings, activeCategory, activeFilters, activeLocation]);
+  
+  const handleLocationChange = (location: string) => {
+    setActiveLocation(location);
+  };
 
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
