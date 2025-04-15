@@ -55,12 +55,14 @@ export default function Header() {
 
           {/* User Navigation */}
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              className="hidden md:block text-sm font-medium hover:bg-neutral-100 px-4 py-2 rounded-full transition"
-            >
-              List your property
-            </Button>
+            <Link href="/create-listing">
+              <Button 
+                variant="ghost" 
+                className="hidden md:block text-sm font-medium hover:bg-neutral-100 px-4 py-2 rounded-full transition"
+              >
+                List your property
+              </Button>
+            </Link>
             
             {/* User Menu */}
             <div className="relative">
@@ -131,6 +133,9 @@ export default function Header() {
                     </Link>
                     <Link href="/wishlists" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       Wishlists
+                    </Link>
+                    <Link href="/create-listing" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
+                      List your property
                     </Link>
                     <Link href="/listings" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       Manage listings
