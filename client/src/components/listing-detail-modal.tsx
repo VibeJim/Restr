@@ -8,6 +8,7 @@ import { DEFAULT_PROFILE_IMAGE, AMENITIES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import CalendarAvailability from './calendar-availability';
+import ListingComments from './listing-comments';
 
 interface ListingDetailModalProps {
   isOpen: boolean;
@@ -323,6 +324,11 @@ Please let me know if this property is available during these dates.
                     console.log('Available dates:', availableDates);
                   }}
                 />
+              </div>
+              
+              {/* Listing Comments */}
+              <div className="py-6 border-b border-neutral-200">
+                <ListingComments listing={listing} />
               </div>
 
               {/* NOSTR Host Info */}

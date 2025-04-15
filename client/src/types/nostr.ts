@@ -78,6 +78,18 @@ export interface NostrReviewContent {
   content: string;
 }
 
+export interface NostrComment {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  content: string;
+  tags: string[][];
+  sig: string;
+  profile?: NostrProfile;
+  zapCount?: number;
+  zapAmount?: number;
+}
+
 export interface NostrZapRequest {
   pubkey: string;
   amount: number;

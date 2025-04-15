@@ -13,11 +13,13 @@ export const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/0000000000
 export const NOSTR_KINDS = {
   METADATA: 0,
   TEXT_NOTE: 1,
+  COMMENT: 1, // NIP-22 comment event (same as TEXT_NOTE but with e tag)
   LISTING: 30001, // Custom kind for listings
   REVIEW: 30002,  // Custom kind for reviews
   BOOKING: 30003,  // Custom kind for bookings
   CALENDAR_EVENT: 31922, // NIP-52 calendar events
-  ZAP_REQUEST: 9734
+  ZAP_REQUEST: 9734,
+  ZAP_RECEIPT: 9735 // NIP-57 zap receipt
 };
 
 export const CATEGORY_ICONS = {

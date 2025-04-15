@@ -1,0 +1,317 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { toast } from '@/hooks/use-toast';
+import { useNostr } from '@/context/nostr-provider';
+import { NostrComment, NostrListing } from '@/types/nostr';
+import { getComments, postComment, zapComment } from '@/lib/nostr';
+import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
+
+interface ListingCommentsProps {
+  listing: NostrListing;
+}
+
+export default function ListingComments({ listing }: ListingCommentsProps) {
+  const { isConnected, user } = useNostr();
+  const [comments, setComments] = useState<NostrComment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [commentText, setCommentText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [zapAmount, setZapAmount] = useState(1000); // Default amount in sats
+  const [commentToZap, setCommentToZap] = useState<NostrComment | null>(null);
+
+  // Load comments when the component mounts
+  useEffect(() => {
+    if (listing) {
+      loadComments();
+    }
+  }, [listing]);
+
+  const loadComments = async () => {
+    setIsLoading(true);
+    try {
+      const fetchedComments = await getComments(listing.id);
+      setComments(fetchedComments);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load comments. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmitComment = async () => {
+    if (!isConnected) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please connect with NOSTR to leave a comment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!commentText.trim()) {
+      toast({
+        title: 'Comment Required',
+        description: 'Please enter a comment before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await postComment(listing.id, commentText.trim());
+      
+      if (result.commentId) {
+        toast({
+          title: 'Comment Posted',
+          description: 'Your comment has been published to the NOSTR network.',
+          variant: 'default',
+        });
+        
+        // Clear the input field
+        setCommentText('');
+        
+        // Reload comments to show the new one
+        await loadComments();
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to post your comment. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      toast({
+        title: 'Error',
+        description: 'An error occurred while posting your comment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleZapComment = async () => {
+    if (!commentToZap) return;
+    
+    if (!isConnected) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please connect with NOSTR to send zaps.',
+        variant: 'destructive',
+      });
+      setCommentToZap(null);
+      return;
+    }
+
+    try {
+      toast({
+        title: 'Creating Zap Request',
+        description: 'Preparing to zap the comment...',
+      });
+      
+      const result = await zapComment(commentToZap.id, zapAmount);
+      
+      if (result.zapRequestEvent) {
+        // If we have a browser extension that can handle zaps, use it
+        if (window.nostr && typeof window.nostr.signEvent === 'function') {
+          const ev = result.zapRequestEvent;
+          
+          // NIP-57: Open a lightning wallet to complete the zap
+          // We're using the event.id as a unique identifier for this zap
+          // This assumes there's a web-based lightning wallet that can handle
+          // the zap flow. In a real app, you might add more logic here to
+          // handle different wallet types.
+          window.open(`lightning:${ev.id}?amount=${zapAmount}000`, '_blank');
+          
+          toast({
+            title: 'Zap Initiated',
+            description: 'Please complete the payment in your lightning wallet.',
+            variant: 'default',
+          });
+        } else {
+          toast({
+            title: 'Zap Created',
+            description: 'Your zap request was created, but no compatible lightning wallet was found to process it.',
+            variant: 'default',
+          });
+        }
+      } else {
+        toast({
+          title: 'Zap Failed',
+          description: 'Unable to create zap request. The author might not have a lightning address set up.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error zapping comment:', error);
+      toast({
+        title: 'Zap Error',
+        description: 'An error occurred while trying to zap the comment.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCommentToZap(null);
+    }
+  };
+
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  return (
+    <div className="my-8">
+      <h3 className="text-xl font-bold mb-6">Comments</h3>
+      
+      {/* Comment Form */}
+      <div className="mb-6">
+        <Textarea
+          placeholder="Share your thoughts or questions about this property..."
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          className="w-full h-24 resize-none mb-3"
+          disabled={isSubmitting || !isConnected}
+        />
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-neutral-500">
+            {isConnected ? 'Comments are posted to the NOSTR network' : 'Connect with NOSTR to comment'}
+          </p>
+          <Button 
+            onClick={handleSubmitComment}
+            disabled={isSubmitting || !isConnected || !commentText.trim()}
+            className="bg-primary hover:bg-primary-600 text-white"
+          >
+            {isSubmitting ? 'Posting...' : 'Post Comment'}
+          </Button>
+        </div>
+      </div>
+      
+      <Separator className="my-6" />
+      
+      {/* Comments List */}
+      <div className="space-y-6">
+        {isLoading ? (
+          // Loading skeleton
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex space-x-4 animate-pulse">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            </div>
+          ))
+        ) : comments.length === 0 ? (
+          <div className="text-center py-6 text-neutral-500">
+            <p>No comments yet. Be the first to leave a comment!</p>
+          </div>
+        ) : (
+          comments.map((comment) => (
+            <div key={comment.id} className="bg-white p-4 rounded-lg border border-neutral-200">
+              <div className="flex items-start">
+                <Avatar className="h-10 w-10 mr-3">
+                  <AvatarImage src={comment.profile?.picture || DEFAULT_PROFILE_IMAGE} alt="User" />
+                  <AvatarFallback>
+                    {(comment.profile?.name || 'User').substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold">
+                        {comment.profile?.name || 'Anonymous User'}
+                      </h4>
+                      <p className="text-sm text-neutral-500">{formatDate(comment.created_at)}</p>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                            onClick={() => setCommentToZap(comment)}
+                            disabled={!isConnected}
+                          >
+                            <i className="ri-flashlight-line mr-1"></i>
+                            <span>{comment.zapCount || 0}</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Send a zap to reward this comment!</p>
+                          {comment.zapAmount ? (
+                            <p className="text-xs">Total: {comment.zapAmount} sats</p>
+                          ) : null}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <p className="mt-2 text-neutral-700 whitespace-pre-wrap">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      
+      {/* Zap Dialog */}
+      <AlertDialog open={!!commentToZap} onOpenChange={(open) => !open && setCommentToZap(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Zap this comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Zap with bitcoin lightning to reward {commentToZap?.profile?.name || 'this user'} for their comment.
+              <div className="mt-4">
+                <label className="block mb-2 text-sm font-medium">
+                  Zap amount (in sats)
+                </label>
+                <div className="flex space-x-2">
+                  {[100, 1000, 5000, 10000].map(amount => (
+                    <Button
+                      key={amount}
+                      variant={zapAmount === amount ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setZapAmount(amount)}
+                    >
+                      {amount}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleZapComment}>
+              <i className="ri-flashlight-line mr-1"></i>
+              Zap {zapAmount} sats
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

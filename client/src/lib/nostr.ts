@@ -792,6 +792,255 @@ export const sendEncryptedDirectMessage = async (
 };
 
 // Get listing calendar events
+// Get comments for a listing with zap information
+export const getComments = async (
+  listingId: string,
+  relays: string[] = RELAYS
+): Promise<NostrComment[]> => {
+  return new Promise((resolve) => {
+    // Create filter for comments related to this listing
+    // NIP-22 comment events are just kind 1 (TEXT_NOTE) with an "e" tag referencing the listing
+    const filter: NostrFilter = {
+      kinds: [NOSTR_KINDS.COMMENT],
+      "#e": [listingId],
+      limit: 50
+    };
+    
+    const comments: Map<string, NostrComment> = new Map();
+    // For tracking zap receipts
+    const zapReceipts: Map<string, { count: number, amount: number }> = new Map();
+    
+    // Fetch comments
+    let commentsFetched = false;
+    let zapsFetched = false;
+    let timeoutId: NodeJS.Timeout;
+    
+    // Subscribe to comments
+    const { unsubscribe: unsubscribeComments } = subscribeToEvents(
+      filter,
+      async (event) => {
+        try {
+          // Create the comment object
+          const comment: NostrComment = {
+            id: event.id,
+            pubkey: event.pubkey,
+            created_at: event.created_at,
+            content: event.content,
+            tags: event.tags,
+            sig: event.sig,
+            zapCount: 0,
+            zapAmount: 0
+          };
+          
+          // Try to fetch the author profile
+          try {
+            const profile = await getUserProfile(event.pubkey, relays);
+            if (profile) {
+              comment.profile = profile;
+            }
+          } catch (error) {
+            console.error('Error fetching comment author profile:', error);
+          }
+          
+          comments.set(event.id, comment);
+        } catch (error) {
+          console.error('Error processing comment:', error);
+        }
+      },
+      () => {
+        // EOSE handler for comments
+        commentsFetched = true;
+        checkAllDone();
+      },
+      relays
+    );
+    
+    // Create filter for zap receipts for any of the comments
+    const zapFilter: NostrFilter = {
+      kinds: [NOSTR_KINDS.ZAP_RECEIPT],
+      limit: 100
+    };
+    
+    // Subscribe to zap receipts
+    const { unsubscribe: unsubscribeZaps } = subscribeToEvents(
+      zapFilter,
+      (event) => {
+        try {
+          // Find the event tag that points to a comment
+          // Format: ["e", "<comment-id>", "<relay-url>"]
+          const eventTag = event.tags.find(tag => 
+            tag.length >= 2 && tag[0] === 'e' && comments.has(tag[1])
+          );
+          
+          if (eventTag) {
+            const commentId = eventTag[1];
+            
+            // Extract the zap amount from the tags
+            // Format: ["amount", "<amount-in-millisats>"]
+            const amountTag = event.tags.find(tag => 
+              tag.length >= 2 && tag[0] === 'amount'
+            );
+            
+            if (amountTag) {
+              const amount = parseInt(amountTag[1], 10) / 1000; // Convert from millisats to sats
+              
+              if (!zapReceipts.has(commentId)) {
+                zapReceipts.set(commentId, { count: 1, amount });
+              } else {
+                const currentZaps = zapReceipts.get(commentId)!;
+                zapReceipts.set(commentId, {
+                  count: currentZaps.count + 1,
+                  amount: currentZaps.amount + amount
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error processing zap receipt:', error);
+        }
+      },
+      () => {
+        // EOSE handler for zaps
+        zapsFetched = true;
+        checkAllDone();
+      },
+      relays
+    );
+    
+    const checkAllDone = () => {
+      if (commentsFetched && zapsFetched) {
+        clearTimeout(timeoutId);
+        
+        // Add zap information to comments
+        for (const [commentId, zapInfo] of zapReceipts.entries()) {
+          if (comments.has(commentId)) {
+            const comment = comments.get(commentId)!;
+            comment.zapCount = zapInfo.count;
+            comment.zapAmount = zapInfo.amount;
+          }
+        }
+        
+        // Sort comments by creation time (newest first)
+        const sortedComments = Array.from(comments.values()).sort(
+          (a, b) => b.created_at - a.created_at
+        );
+        
+        console.log(`Found ${sortedComments.length} comments for listing ${listingId}`);
+        unsubscribeComments();
+        unsubscribeZaps();
+        resolve(sortedComments);
+      }
+    };
+    
+    // Set timeout for the entire operation
+    timeoutId = setTimeout(() => {
+      // If we time out, use whatever data we have
+      commentsFetched = true;
+      zapsFetched = true;
+      checkAllDone();
+    }, 8000); // 8 seconds should be enough to get comments and zaps
+  });
+};
+
+// Post a comment on a listing
+export const postComment = async (
+  listingId: string,
+  content: string,
+  relays: string[] = RELAYS
+): Promise<{ commentId: string | null }> => {
+  try {
+    // Create the event tags
+    // According to NIP-22, we tag the listing with "e" and "root" marker
+    const tags: string[][] = [
+      ['e', listingId, '', 'root']
+    ];
+    
+    // Create and sign the event
+    const event = await createSignedEvent(NOSTR_KINDS.COMMENT, content, tags);
+    if (!event) {
+      console.error("Failed to create signed comment event");
+      return { commentId: null };
+    }
+    
+    // Publish the event to relays
+    const successfulRelays = await publishEvent(event, relays);
+    
+    return { 
+      commentId: successfulRelays.length > 0 ? event.id : null
+    };
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    return { commentId: null };
+  }
+};
+
+// Create a zap request for a comment
+export const zapComment = async (
+  commentId: string,
+  amount: number,
+  relays: string[] = RELAYS
+): Promise<{ zapRequestEvent: NostrEvent | null }> => {
+  try {
+    // Get comment author's pubkey
+    // We need to first fetch the comment to get the author's pubkey
+    const commentFilter: NostrFilter = {
+      kinds: [NOSTR_KINDS.COMMENT],
+      ids: [commentId],
+      limit: 1
+    };
+    
+    let commentPubkey: string | null = null;
+    
+    await new Promise<void>((resolve) => {
+      const { unsubscribe } = subscribeToEvents(
+        commentFilter,
+        (event) => {
+          commentPubkey = event.pubkey;
+          unsubscribe();
+          resolve();
+        },
+        () => {
+          resolve();
+        },
+        relays
+      );
+      
+      // Set timeout for fetching the comment
+      setTimeout(() => {
+        unsubscribe();
+        resolve();
+      }, 3000);
+    });
+    
+    if (!commentPubkey) {
+      console.error("Could not find the comment author");
+      return { zapRequestEvent: null };
+    }
+    
+    // Create the zap request
+    const zapRequest: NostrZapRequest = {
+      pubkey: commentPubkey,
+      amount: amount,
+      relays: relays,
+      comment: "Zap for your comment!"
+    };
+    
+    // Get author profile to check for lightning address
+    const profile = await getUserProfile(commentPubkey, relays);
+    if (profile?.lud16) {
+      zapRequest.lnurl = profile.lud16;
+    }
+    
+    // Create the zap request event
+    const zapEvent = await createZapRequest(zapRequest);
+    
+    return { zapRequestEvent: zapEvent };
+  } catch (error) {
+    console.error('Error creating zap request:', error);
+    return { zapRequestEvent: null };
+  }
+};
+
 export const getListingCalendarEvents = async (
   listingId: string,
   startDate?: Date,
