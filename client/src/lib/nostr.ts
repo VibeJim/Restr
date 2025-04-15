@@ -703,7 +703,8 @@ export const sendEncryptedDirectMessage = async (
 
     if (dmEvent) {
       // Publish to relays
-      return publishEvent(dmEvent, relays) ? dmEvent : null;
+      const publishedRelays = await publishEvent(dmEvent, relays);
+      return publishedRelays.length > 0 ? dmEvent : null;
     }
     return null;
   } catch (error) {

@@ -58,11 +58,20 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
 
   if (!listing) return null;
 
-  const handleReserve = () => {
+  const handleMessageHost = async () => {
     if (!isConnected) {
       toast({
         title: "Authentication Required",
-        description: "Please connect with NOSTR to reserve this property.",
+        description: "Please connect with NOSTR to message the host.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!host || !listing) {
+      toast({
+        title: "Error",
+        description: "Unable to find host information. Please try again later.",
         variant: "destructive"
       });
       return;
@@ -72,17 +81,51 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
     if (!checkIn || !checkOut) {
       toast({
         title: "Dates Required",
-        description: "Please select check-in and check-out dates.",
+        description: "Please select check-in and check-out dates to include in your message.",
         variant: "destructive"
       });
       return;
     }
 
-    toast({
-      title: "Booking Initiated",
-      description: "This would connect to NOSTR payment system in a complete implementation.",
-      variant: "default"
-    });
+    try {
+      // Create the message content with booking details
+      const messageContent = `
+Hello! I'm interested in your listing "${listing.content.title}".
+
+Booking details:
+- Check-in: ${formatDate(checkIn)}
+- Check-out: ${formatDate(checkOut)}
+- Guests: ${guests}
+- Total nights: ${totalNights}
+- Total price: ${listing.content.currency === 'BTC' ? '₿' : 'ϟ'}${total} ${listing.content.currency === 'BTC' ? 'BTC' : 'sats'}
+
+Please let me know if this property is available during these dates.
+`.trim();
+      
+      // Send the encrypted message
+      const result = await sendEncryptedDirectMessage(listing.pubkey, messageContent);
+      
+      if (result) {
+        toast({
+          title: "Message Sent!",
+          description: "Your message has been encrypted and sent to the host. To view responses, download oxchat and use your NOSTR private key (nsec).",
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Message Failed",
+          description: "There was an error sending your encrypted message. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error sending encrypted message:", error);
+      toast({
+        title: "Message Error",
+        description: "Failed to send encrypted message. Make sure your NOSTR extension supports NIP-04 encryption.",
+        variant: "destructive"
+      });
+    }
   };
 
   const totalNights = checkIn && checkOut 
@@ -106,6 +149,7 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-6xl max-h-[90vh] p-0 flex flex-col">
+        <DialogTitle className="sr-only">{listing.content.title}</DialogTitle>
         {/* Modal Header */}
         <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
           <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-neutral-100 transition" onClick={onClose}>
@@ -351,12 +395,13 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
                 </div>
 
                 <Button 
-                  onClick={handleReserve}
+                  onClick={handleMessageHost}
                   className="w-full bg-primary hover:bg-primary-600 text-white font-medium py-3 rounded-lg mt-4 transition"
                 >
-                  Reserve
+                  <i className="ri-message-2-line mr-2"></i>
+                  Message Host
                 </Button>
-                <p className="text-center text-sm mt-2 text-neutral-500">You won't be charged yet</p>
+                <p className="text-center text-sm mt-2 text-neutral-500">Send encrypted NOSTR message to host</p>
 
                 {/* Price Details */}
                 {checkIn && checkOut && (
