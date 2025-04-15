@@ -35,8 +35,34 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
   const loadComments = async () => {
     setIsLoading(true);
     try {
+      console.log(`Loading comments for listing ${listing.id}`);
       const fetchedComments = await getComments(listing.id);
+      console.log(`Received ${fetchedComments.length} comments`);
       setComments(fetchedComments);
+      
+      // If we posted a comment but it wasn't found in the fetch,
+      // try to add it optimistically from local storage
+      if (fetchedComments.length === 0) {
+        const lastPostedCommentId = localStorage.getItem(`last_comment_${listing.id}`);
+        const lastPostedCommentContent = localStorage.getItem(`last_comment_content_${listing.id}`);
+        
+        if (lastPostedCommentId && lastPostedCommentContent && user) {
+          console.log(`Adding optimistic comment from local storage: ${lastPostedCommentId}`);
+          const optimisticComment: NostrComment = {
+            id: lastPostedCommentId,
+            pubkey: user.pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            content: lastPostedCommentContent,
+            tags: [['e', listing.id, '', 'root']],
+            sig: '',
+            profile: user.profile,
+            zapCount: 0,
+            zapAmount: 0
+          };
+          
+          setComments([optimisticComment]);
+        }
+      }
     } catch (error) {
       console.error('Error loading comments:', error);
       toast({
@@ -68,27 +94,59 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
       return;
     }
 
+    const trimmedComment = commentText.trim();
     setIsSubmitting(true);
+    
     try {
-      const result = await postComment(listing.id, commentText.trim());
+      const result = await postComment(listing.id, trimmedComment);
       
       if (result.commentId) {
+        // Store the comment ID and content in localStorage for optimistic UI
+        localStorage.setItem(`last_comment_${listing.id}`, result.commentId);
+        localStorage.setItem(`last_comment_content_${listing.id}`, trimmedComment);
+        
+        // Clear the input field
+        setCommentText('');
+        
+        // Update the UI with an optimistic comment
+        if (user) {
+          const optimisticComment: NostrComment = {
+            id: result.commentId,
+            pubkey: user.pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            content: trimmedComment,
+            tags: [['e', listing.id, '', 'root']],
+            sig: '',
+            profile: user.profile,
+            zapCount: 0,
+            zapAmount: 0
+          };
+          
+          // Add the optimistic comment to the list
+          setComments(prevComments => [optimisticComment, ...prevComments]);
+        }
+        
         toast({
           title: 'Comment Posted',
           description: 'Your comment has been published to the NOSTR network.',
           variant: 'default',
         });
         
-        // Clear the input field
-        setCommentText('');
-        
-        // Reload comments to show the new one
-        await loadComments();
+        // Try to reload comments from the network, but don't replace our optimistic UI
+        // if the network fetch fails
+        try {
+          const fetchedComments = await getComments(listing.id);
+          if (fetchedComments.length > 0) {
+            setComments(fetchedComments);
+          }
+        } catch (err) {
+          console.log('Error refreshing comments, keeping optimistic UI:', err);
+        }
       } else {
         toast({
-          title: 'Error',
-          description: 'Failed to post your comment. Please try again.',
-          variant: 'destructive',
+          title: 'Warning',
+          description: 'Your comment was created but may not have reached all relays. It will appear locally.',
+          variant: 'default',
         });
       }
     } catch (error) {

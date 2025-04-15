@@ -867,9 +867,11 @@ export const getComments = async (
     // NIP-22 comment events are just kind 1 (TEXT_NOTE) with an "e" tag referencing the listing
     const filter: NostrFilter = {
       kinds: [NOSTR_KINDS.COMMENT],
-      "#e": [listingId],
+      "#e": [listingId], // Find events that tag the listing
       limit: 50
     };
+    
+    console.log(`Searching for comments with filter:`, filter);
     
     const comments: Map<string, NostrComment> = new Map();
     // For tracking zap receipts
