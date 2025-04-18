@@ -41,6 +41,14 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
   const [user, setUser] = useState<NostrUser | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Helper function to convert string to valid login method
+  const safeLoginMethod = (method: string | null): 'nip07' | 'nip46' | 'unknown' => {
+    if (method === 'nip07' || method === 'nip46') {
+      return method;
+    }
+    return 'unknown';
+  };
 
   // Set up WebSocket connection for mobile login
   useEffect(() => {
@@ -73,7 +81,7 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
             const nip46Event = data[2];
             
             // This is a remote auth event, extract the pubkey
-            if (nip46Event.tags.some(tag => tag[0] === 'method' && tag[1] === 'connect')) {
+            if (nip46Event.tags.some((tag: string[]) => tag[0] === 'method' && tag[1] === 'connect')) {
               const pubkey = nip46Event.pubkey;
               
               if (pubkey) {
@@ -134,7 +142,7 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
               pubkey: storedPubkey,
               npub: npub,
               profile,
-              loginMethod: loginMethod || 'unknown'
+              loginMethod: safeLoginMethod(loginMethod)
             });
             setIsConnected(true);
           }
