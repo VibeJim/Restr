@@ -130,40 +130,16 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
   };
   
   const handleMobileConnect = () => {
-    if (isMobile) {
-      // If on mobile, directly open the URL
-      // Use a more reliable way to open the app using window.open
-      // This prevents issues with how some browsers handle protocol URLs
-      
-      console.log('Opening Amber app with URL:', loginUrl);
-      
-      // First try with window.open which works better on some browsers
-      const openWindow = window.open(loginUrl, '_blank');
-      
-      // If window.open didn't work, try with location.href as fallback
-      if (!openWindow) {
-        // Small delay to ensure the UI updates before navigation
-        setTimeout(() => {
-          window.location.href = loginUrl;
-        }, 100);
-      }
-      
-      // Add a fallback message if the app doesn't open after a delay
-      setTimeout(() => {
-        toast({
-          title: "Can't open Amber app?",
-          description: "If the app didn't open automatically, please install Amber from the App Store or Google Play.",
-          variant: "default",
-          duration: 5000
-        });
-      }, 2000);
-    } else {
-      toast({
-        title: "Scan QR Code",
-        description: "Use your Amber app to scan the QR code for secure login.",
-        variant: "default"
-      });
-    }
+    // Show QR code instructions for all users, even on mobile
+    toast({
+      title: "Scan or Copy Code",
+      description: "Use your Amber app to scan this QR code or copy the connection code.",
+      variant: "default",
+      duration: 5000
+    });
+    
+    // We'll rely on the QR code display for all users
+    // This allows the web app to stay in the browser
   };
 
   return (
@@ -232,70 +208,71 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
             
             <TabsContent value="mobile" className="space-y-4">
               <div className="flex flex-col items-center p-4 border border-neutral-300 rounded-lg">
-                {isMobile ? (
-                  <>
-                    <div className="text-center mb-4">
-                      <h3 className="font-medium text-lg">Connect with Amber</h3>
-                      <p className="text-sm text-neutral-500">
-                        Use the Amber app to sign in using NIP-46 remote signing
-                      </p>
-                    </div>
-                    <div className="mb-4">
-                      <img 
-                        src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
-                        alt="Amber App Logo" 
-                        className="h-8 mx-auto mb-2"
-                      />
-                    </div>
-                    {/* Use a direct link element with href alongside the button for better mobile protocol handling */}
+                <div className="text-center mb-2">
+                  <h3 className="font-medium text-lg">Connect with Amber</h3>
+                  <p className="text-sm text-neutral-500 mb-2">
+                    Scan this QR code with your Amber app
+                  </p>
+                  <img 
+                    src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
+                    alt="Amber App Logo" 
+                    className="h-6 mx-auto mb-2"
+                  />
+                </div>
+                
+                <div className="bg-white p-3 rounded-lg mb-4 border-2 border-[#FF8900]">
+                  <QRCodeSVG value={qrValue} size={isMobile ? 150 : 200} />
+                </div>
+                
+                {isMobile && (
+                  <div className="w-full mb-3">
                     <Button
-                      onClick={handleMobileConnect}
+                      onClick={() => {
+                        // Copy the connection URL to clipboard
+                        navigator.clipboard.writeText(loginUrl).then(() => {
+                          toast({
+                            title: "Connection URL Copied",
+                            description: "Open Amber app and paste this code to connect",
+                            variant: "default",
+                            duration: 3000
+                          });
+                        });
+                      }}
                       className="w-full bg-[#FF8900] hover:bg-[#E67A00] text-white"
                     >
-                      Open Amber App
+                      Copy Connection Code
                     </Button>
-                    
-                    {/* Hidden fallback link that's more reliable on some mobile browsers */}
-                    <div className="text-center mt-2">
-                      <a 
-                        href={loginUrl}
-                        className="text-xs text-[#FF8900] underline"
-                        onClick={(e) => {
-                          // This direct link approach might work better on some devices
-                          console.log('Using direct link to open Amber with:', loginUrl);
-                          // Don't stop propagation so the native handling can work
-                        }}
-                      >
-                        Tap here if the button doesn't work
-                      </a>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-center mb-2">
-                      <h3 className="font-medium text-lg">Scan with Amber App</h3>
-                      <p className="text-sm text-neutral-500 mb-2">
-                        Scan this QR code with your Amber mobile app
-                      </p>
-                      <img 
-                        src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
-                        alt="Amber App Logo" 
-                        className="h-6 mx-auto mb-3"
-                      />
-                    </div>
-                    <div className="bg-white p-3 rounded-lg mb-4 border-2 border-[#FF8900]">
-                      <QRCodeSVG value={qrValue} size={200} />
-                    </div>
-                    <div className="text-xs text-center text-neutral-500">
-                      This QR code uses the NIP-46 protocol for secure remote signing
-                    </div>
-                  </>
+                    <p className="text-xs text-center mt-2 text-neutral-500">
+                      You can copy the code and manually paste it in the Amber app
+                    </p>
+                  </div>
                 )}
+                
+                <div className="text-xs text-center text-neutral-500">
+                  This QR code uses the NIP-46 protocol for secure remote signing
+                </div>
               </div>
               
               <div className="text-sm bg-amber-50 text-amber-800 p-3 rounded-lg">
-                <p className="font-medium">About Amber App</p>
-                <p className="mt-1">
+                <p className="font-medium">How to Connect with Amber:</p>
+                
+                {isMobile ? (
+                  <ol className="mt-2 ml-4 list-decimal text-xs space-y-1">
+                    <li><strong>Install Amber</strong> from the App Store or Google Play if you don't have it</li>
+                    <li><strong>Open Amber</strong> on your device</li>
+                    <li><strong>Tap "Scan"</strong> in the Amber app or use the copy feature above</li>
+                    <li><strong>Authorize</strong> the connection when prompted</li>
+                  </ol>
+                ) : (
+                  <ol className="mt-2 ml-4 list-decimal text-xs space-y-1">
+                    <li><strong>Install Amber</strong> on your mobile device</li>
+                    <li><strong>Open Amber</strong> and tap "Scan" in the app</li>
+                    <li><strong>Scan this QR code</strong> with your phone's camera</li>
+                    <li><strong>Authorize</strong> the connection when prompted</li>
+                  </ol>
+                )}
+                
+                <p className="mt-3">
                   <a 
                     href="https://amber.app" 
                     target="_blank" 
@@ -304,7 +281,7 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                   >
                     Amber
                   </a>{' '}
-                  is the recommended wallet for NOSTR. It supports NIP-46 remote signing for a secure login experience without sharing your private keys.
+                  is the recommended wallet for NOSTR. It enables secure sign-in without sharing your private keys.
                 </p>
                 <p className="mt-2">
                   <a 
