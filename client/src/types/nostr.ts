@@ -61,6 +61,7 @@ export interface NostrUser {
   npub: string;
   profile?: NostrProfile;
   relays?: string[];
+  loginMethod?: 'nip07' | 'nip46' | 'unknown';
 }
 
 export interface NostrBookingContent {
