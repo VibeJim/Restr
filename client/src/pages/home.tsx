@@ -61,23 +61,43 @@ export default function Home() {
     }
 
     // Apply additional filters
-    if (activeFilters.activeFilters && activeFilters.activeFilters.length > 0) {
-      const filters = activeFilters.activeFilters;
+    if (activeFilters) {
+      // Apply amenity filters
+      if (activeFilters.activeFilters && activeFilters.activeFilters.length > 0) {
+        const filters = activeFilters.activeFilters;
+        
+        if (filters.includes('wifi')) {
+          filtered = filtered.filter(listing => {
+            return listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'wifi' || amenity.toLowerCase().includes('wifi')
+            );
+          });
+        }
+        
+        if (filters.includes('selfCheckin')) {
+          filtered = filtered.filter(listing => {
+            return listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'self check-in' || amenity.toLowerCase().includes('check-in')
+            );
+          });
+        }
+      }
       
-      // Example filters - in a real app these would be more sophisticated
-      if (filters.includes('wifi')) {
+      // Apply price range filter
+      if (activeFilters.priceRange) {
+        const [minPrice, maxPrice] = activeFilters.priceRange;
         filtered = filtered.filter(listing => {
-          return listing.content.amenities?.some(amenity => 
-            amenity.toLowerCase() === 'wifi' || amenity.toLowerCase().includes('wifi')
-          );
+          const price = listing.content.price || 0;
+          return price >= minPrice && price <= maxPrice;
         });
       }
       
-      if (filters.includes('selfCheckin')) {
+      // Apply property type filter
+      if (activeFilters.propertyType) {
         filtered = filtered.filter(listing => {
-          return listing.content.amenities?.some(amenity => 
-            amenity.toLowerCase() === 'self check-in' || amenity.toLowerCase().includes('check-in')
-          );
+          // Match property type with the listing description or title since we don't have a direct property type field
+          const content = (listing.content.description || '') + ' ' + (listing.content.title || '');
+          return content.toLowerCase().includes(activeFilters.propertyType.toLowerCase());
         });
       }
     }
