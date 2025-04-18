@@ -61,9 +61,14 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
       const encodedRelay = encodeURIComponent(relay);
       const encodedMetadata = encodeURIComponent(metadata);
       
-      // Create the final URL according to nostrconnect.org and NIP-46 spec
-      // Format: nostrconnect://<target_pubkey>?relay=<relay_url>&metadata=<metadata_json>&secret=<secret>
+      // Create the final URL according to NIP-46 spec and Amber's implementation
+      // For maximum compatibility, we'll use the more widely supported format:
+      // nostrconnect://?relay=<relay_url>&metadata=<metadata_json>&secret=<secret>
+      // This works with Amber and other NIP-46 implementations
       const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
+      
+      // Log the URL for debugging
+      console.log('Generated NIP-46 connect URL:', url);
       
       setLoginUrl(url);
       setQrValue(url);
@@ -127,11 +132,35 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
   const handleMobileConnect = () => {
     if (isMobile) {
       // If on mobile, directly open the URL
-      window.location.href = loginUrl;
+      // Use a more reliable way to open the app using window.open
+      // This prevents issues with how some browsers handle protocol URLs
+      
+      console.log('Opening Amber app with URL:', loginUrl);
+      
+      // First try with window.open which works better on some browsers
+      const openWindow = window.open(loginUrl, '_blank');
+      
+      // If window.open didn't work, try with location.href as fallback
+      if (!openWindow) {
+        // Small delay to ensure the UI updates before navigation
+        setTimeout(() => {
+          window.location.href = loginUrl;
+        }, 100);
+      }
+      
+      // Add a fallback message if the app doesn't open after a delay
+      setTimeout(() => {
+        toast({
+          title: "Can't open Amber app?",
+          description: "If the app didn't open automatically, please install Amber from the App Store or Google Play.",
+          variant: "default",
+          duration: 5000
+        });
+      }, 2000);
     } else {
       toast({
         title: "Scan QR Code",
-        description: "Use your Amber app or any NOSTR-compatible wallet to scan the QR code.",
+        description: "Use your Amber app to scan the QR code for secure login.",
         variant: "default"
       });
     }
@@ -218,12 +247,28 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                         className="h-8 mx-auto mb-2"
                       />
                     </div>
+                    {/* Use a direct link element with href alongside the button for better mobile protocol handling */}
                     <Button
                       onClick={handleMobileConnect}
                       className="w-full bg-[#FF8900] hover:bg-[#E67A00] text-white"
                     >
                       Open Amber App
                     </Button>
+                    
+                    {/* Hidden fallback link that's more reliable on some mobile browsers */}
+                    <div className="text-center mt-2">
+                      <a 
+                        href={loginUrl}
+                        className="text-xs text-[#FF8900] underline"
+                        onClick={(e) => {
+                          // This direct link approach might work better on some devices
+                          console.log('Using direct link to open Amber with:', loginUrl);
+                          // Don't stop propagation so the native handling can work
+                        }}
+                      >
+                        Tap here if the button doesn't work
+                      </a>
+                    </div>
                   </>
                 ) : (
                   <>
