@@ -34,21 +34,27 @@ export const getCurrentUserPubkey = async (): Promise<string | null> => {
 };
 
 // Convert a hex pubkey to an npub
-export const hexToBech32 = (hex: string, prefix: string = 'npub'): string => {
+export const hexToBech32 = (hex: string): string => {
   try {
     // Using the newer API format for nip19
     return nip19.npubEncode(hex);
   } catch (error) {
     console.error('Error converting hex to bech32:', error);
-    return hex;
+    // Return a simple shortened version for display if conversion fails
+    return `npub1${hex.substring(0, 6)}...${hex.substring(hex.length - 4)}`;
   }
 };
 
 // Convert an npub to a hex pubkey
 export const bech32ToHex = (bech32: string): string | null => {
   try {
-    const { data } = nip19.decode(bech32);
-    return data.toString();
+    if (bech32.startsWith('npub1')) {
+      const { data } = nip19.decode(bech32);
+      return data.toString();
+    } else {
+      // If it's already a hex key, just return it
+      return bech32;
+    }
   } catch (error) {
     console.error('Error converting bech32 to hex:', error);
     return null;
