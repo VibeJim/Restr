@@ -37,6 +37,7 @@ export default function CreateListing() {
     bedrooms: 1,
     bathrooms: 1,
     maxGuests: 2,
+    rentalType: 'short_term', // Default to short-term rental
     amenities: []
   });
 
@@ -148,6 +149,7 @@ export default function CreateListing() {
         bedrooms: formData.bedrooms || 1,
         bathrooms: formData.bathrooms || 1,
         maxGuests: formData.maxGuests || 1,
+        rentalType: formData.rentalType || 'short_term',
         amenities: formData.amenities || []
       };
 
@@ -382,6 +384,21 @@ export default function CreateListing() {
                     >
                       <option value="SATS">SATS (Satoshis)</option>
                       <option value="BTC">BTC (Bitcoin)</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="rentalType">Rental Type</Label>
+                    <select
+                      id="rentalType"
+                      name="rentalType"
+                      value={formData.rentalType || 'short_term'}
+                      onChange={handleChange}
+                      className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    >
+                      <option value="short_term">Short Term (days/weeks)</option>
+                      <option value="long_term">Long Term (months/years)</option>
+                      <option value="sublet">Sublet</option>
                     </select>
                   </div>
                   

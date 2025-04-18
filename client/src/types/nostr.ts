@@ -45,6 +45,7 @@ export interface NostrListingContent {
   bathrooms: number;
   maxGuests: number;
   amenities: string[];
+  rentalType?: 'short_term' | 'long_term' | 'sublet';  // Add rental type option
   [key: string]: any;
 }
 
