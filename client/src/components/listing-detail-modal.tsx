@@ -185,21 +185,22 @@ Please let me know if this property is available during these dates.
 
         {/* Modal Body */}
         <div className="flex-grow overflow-y-auto p-6">
-          {/* Listing Title */}
-          <h2 className="text-2xl font-bold mb-1">{listing.content.title}</h2>
-          <div className="flex items-center mb-4">
-            <span className="flex items-center mr-2">
-              <i className="ri-star-fill text-xs mr-1"></i>
-              <span className="text-sm font-medium">New</span>
-            </span>
-            <span className="text-sm text-neutral-500 underline">0 reviews</span>
-            <span className="mx-2 text-neutral-300">·</span>
-            <span className="text-sm text-neutral-500">{listing.content.location}</span>
+          {/* Listing Title - Fixed spacing and alignment */}
+          <div className="mb-5">
+            <h2 className="text-2xl font-bold mb-2">{listing.content.title}</h2>
+            <div className="flex flex-wrap items-center">
+              <span className="flex items-center mr-3">
+                <i className="ri-star-fill text-xs mr-1"></i>
+                <span className="text-sm font-medium">New</span>
+              </span>
+              <span className="text-sm text-neutral-500 underline mr-3">0 reviews</span>
+              <span className="text-sm text-neutral-500">{listing.content.location}</span>
+            </div>
           </div>
 
-          {/* Photos Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-2 mb-8 rounded-xl overflow-hidden">
-            <div className="md:col-span-2 md:row-span-2">
+          {/* Photos Grid - Fixed height and spacing */}
+          <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-2 mb-6 rounded-xl overflow-hidden h-[350px]">
+            <div className="md:col-span-2 md:row-span-2 h-full">
               <img 
                 src={listing.content.images[0] || ''} 
                 alt={listing.content.title} 
@@ -207,7 +208,7 @@ Please let me know if this property is available during these dates.
               />
             </div>
             {listing.content.images.slice(1, 5).map((image, index) => (
-              <div key={index}>
+              <div key={index} className="h-full">
                 <img 
                   src={image} 
                   alt={`${listing.content.title} image ${index + 2}`} 
