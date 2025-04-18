@@ -26,7 +26,7 @@ export const CATEGORY_ICONS = {
   "All homes": "ri-home-4-line",
   "Apartments": "ri-hotel-line",
   "Mountain": "ri-landscape-line",
-  "Beachfront": "ri-tsunami-line",
+  "Beachfront": "ri-sun-line",
   "Amazing views": "ri-rainbow-line",
   "Countryside": "ri-leaf-line",
   "Tiny homes": "ri-community-line",

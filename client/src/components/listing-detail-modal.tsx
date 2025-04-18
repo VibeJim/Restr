@@ -105,7 +105,7 @@ Booking details:
 - Check-out: ${formatDate(checkOut)}
 - Guests: ${guests}
 - Total nights: ${totalNights}
-- Total price: ${listing.content.currency === 'BTC' ? '₿' : 'ϟ'}${total} ${listing.content.currency === 'BTC' ? 'BTC' : 'sats'}
+- Approx total: ${listing.content.currency === 'BTC' ? '₿' : 'ϟ'}${total} ${listing.content.currency === 'BTC' ? 'BTC' : 'sats'}
 
 Please let me know if this property is available during these dates.
 `.trim();
@@ -150,9 +150,8 @@ Please let me know if this property is available during these dates.
     : 0;
 
   const subTotal = listing.content.price * totalNights;
-  const cleaningFee = Math.round(listing.content.price * 0.3);
-  const serviceFee = Math.round(subTotal * 0.1);
-  const total = subTotal + cleaningFee + serviceFee;
+  // Removed cleaning fee and service fee as requested
+  const total = subTotal; // Total is now just the subtotal
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -446,16 +445,8 @@ Please let me know if this property is available during these dates.
                       </span>
                       <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{subTotal}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="underline">Cleaning fee</span>
-                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{cleaningFee}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="underline">Service fee</span>
-                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{serviceFee}</span>
-                    </div>
                     <div className="flex justify-between pt-4 border-t border-neutral-200 font-semibold">
-                      <span>Total before taxes</span>
+                      <span>Approx total</span>
                       <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{total}</span>
                     </div>
                   </div>

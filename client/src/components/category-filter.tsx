@@ -22,7 +22,7 @@ export default function CategoryFilter({ onCategoryChange }: CategoryFilterProps
           {categories.map((category) => (
             <button
               key={category}
-              className={`category-pill flex flex-col items-center min-w-fit text-sm ${
+              className={`category-pill flex flex-col items-center justify-center min-w-fit text-sm ${
                 activeCategory === category
                   ? 'text-neutral-900 border-b-2 border-neutral-800'
                   : 'text-neutral-500 hover:text-neutral-900 pb-2 border-b-2 border-transparent hover:border-neutral-300'
@@ -30,7 +30,7 @@ export default function CategoryFilter({ onCategoryChange }: CategoryFilterProps
               onClick={() => handleCategoryClick(category)}
             >
               <i className={`${CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS]} text-xl mb-1`}></i>
-              <span>{category}</span>
+              <span className="whitespace-nowrap">{category}</span>
             </button>
           ))}
         </div>
