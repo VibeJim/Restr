@@ -33,15 +33,37 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
       setActiveTab('mobile');
     }
     
-    // Generate a NIP-46 connect URL for Amber
+    // Generate a NIP-46 connect URL for Amber following the official spec
     const generateConnectUrl = () => {
-      // Create a session ID for this connection request
-      const sessionId = Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('nostr_connect_session', sessionId);
+      // Create a random secret for this connection request
+      const secret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('nostr_connect_session', secret);
       
-      // Base URL for connection
-      const appName = encodeURIComponent('restr');
-      const url = `nostr+walletconnect://${appName}?relay=${encodeURIComponent('wss://relay.damus.io')}&secret=${sessionId}`;
+      // Define the relay used for NIP-46 communication
+      const relay = 'wss://relay.damus.io';
+      
+      // Get the application and target URIs according to NIP-46
+      const appName = 'restr';
+      const appURL = window.location.origin;
+      
+      // Construct the URI according to the NIP-46 spec
+      // nostrconnect://<pubkey>?relay=<relay>&metadata=<metadata>
+      // Since we don't have a pubkey yet (the whole point is to get one), we use a placeholder
+      // Amber doesn't require a specific pubkey parameter
+      const metadata = JSON.stringify({
+        name: appName,
+        url: appURL,
+        description: 'A NOSTR-based property rental platform',
+        icons: [`${appURL}/favicon.ico`]
+      });
+      
+      // Encode everything properly
+      const encodedRelay = encodeURIComponent(relay);
+      const encodedMetadata = encodeURIComponent(metadata);
+      
+      // Create the final URL according to nostrconnect.org and NIP-46 spec
+      // Format: nostrconnect://<target_pubkey>?relay=<relay_url>&metadata=<metadata_json>&secret=<secret>
+      const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
       
       setLoginUrl(url);
       setQrValue(url);
@@ -129,7 +151,7 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="extension">Browser Extension</TabsTrigger>
-              <TabsTrigger value="mobile">Mobile / Amber</TabsTrigger>
+              <TabsTrigger value="mobile">Amber App</TabsTrigger>
             </TabsList>
             
             <TabsContent value="extension" className="space-y-4">
@@ -186,47 +208,76 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                     <div className="text-center mb-4">
                       <h3 className="font-medium text-lg">Connect with Amber</h3>
                       <p className="text-sm text-neutral-500">
-                        Click the button below to connect with the Amber app
+                        Use the Amber app to sign in using NIP-46 remote signing
                       </p>
+                    </div>
+                    <div className="mb-4">
+                      <img 
+                        src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
+                        alt="Amber App Logo" 
+                        className="h-8 mx-auto mb-2"
+                      />
                     </div>
                     <Button
                       onClick={handleMobileConnect}
-                      className="w-full bg-primary hover:bg-primary-600 text-white"
+                      className="w-full bg-[#FF8900] hover:bg-[#E67A00] text-white"
                     >
                       Open Amber App
                     </Button>
                   </>
                 ) : (
                   <>
-                    <div className="text-center mb-4">
-                      <h3 className="font-medium text-lg">Scan with Mobile App</h3>
-                      <p className="text-sm text-neutral-500">
-                        Scan this QR code with Amber or any NIP-46 compatible NOSTR app
+                    <div className="text-center mb-2">
+                      <h3 className="font-medium text-lg">Scan with Amber App</h3>
+                      <p className="text-sm text-neutral-500 mb-2">
+                        Scan this QR code with your Amber mobile app
                       </p>
+                      <img 
+                        src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
+                        alt="Amber App Logo" 
+                        className="h-6 mx-auto mb-3"
+                      />
                     </div>
-                    <div className="bg-white p-3 rounded-lg mb-4">
+                    <div className="bg-white p-3 rounded-lg mb-4 border-2 border-[#FF8900]">
                       <QRCodeSVG value={qrValue} size={200} />
                     </div>
                     <div className="text-xs text-center text-neutral-500">
-                      The QR code will remain active until you close this dialog
+                      This QR code uses the NIP-46 protocol for secure remote signing
                     </div>
                   </>
                 )}
               </div>
               
-              <div className="text-sm bg-blue-50 text-blue-800 p-3 rounded-lg">
-                <p className="font-medium">Don't have a NOSTR mobile app?</p>
+              <div className="text-sm bg-amber-50 text-amber-800 p-3 rounded-lg">
+                <p className="font-medium">About Amber App</p>
                 <p className="mt-1">
-                  Download{' '}
                   <a 
                     href="https://amber.app" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="underline text-blue-900"
+                    className="underline text-amber-900 font-medium"
                   >
                     Amber
                   </a>{' '}
-                  for iOS or Android to connect and sign your NOSTR events.
+                  is the recommended wallet for NOSTR. It supports NIP-46 remote signing for a secure login experience without sharing your private keys.
+                </p>
+                <p className="mt-2">
+                  <a 
+                    href="https://apps.apple.com/us/app/amber-bitcoin-lightning-nostr/id1641569086" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block mr-3"
+                  >
+                    <img src="https://amber.app/wp-content/uploads/2023/03/download-from-app-store.svg" alt="Download from App Store" className="h-8" />
+                  </a>
+                  <a 
+                    href="https://play.google.com/store/apps/details?id=com.amberapp.amber" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block"
+                  >
+                    <img src="https://amber.app/wp-content/uploads/2023/03/get-it-on-google-play.svg" alt="Get it on Google Play" className="h-8" />
+                  </a>
                 </p>
               </div>
             </TabsContent>

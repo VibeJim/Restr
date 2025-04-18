@@ -62,34 +62,81 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
       ws.onopen = () => {
         console.log('WebSocket connected for NIP-46 remote signing');
         
-        // Get the current session ID
-        const sessionId = localStorage.getItem('nostr_connect_session');
-        if (sessionId) {
-          // Subscribe to any messages for this session ID
+        // Get the current session secret
+        const secret = localStorage.getItem('nostr_connect_session');
+        if (secret) {
+          // Subscribe to NIP-46 auth events
           const subscriptionId = Math.random().toString(36).substring(2, 15);
-          ws?.send(JSON.stringify(['REQ', subscriptionId, { 
+          
+          // Create a filter for NIP-46 authentication events
+          const filter = {
             kinds: [24133], // NIP-46 remote signing kind
-            '#t': [sessionId], // Look for our session ID in the tags
+            // Look for relevant tags - both for secret and method=connect
+            '#secret': [secret],
+            // Also subscribe to any method=connect events for this relay
+            // as a fallback for older implementations
+          };
+          
+          console.log('Setting up NIP-46 subscription with filter:', filter);
+          ws?.send(JSON.stringify(['REQ', subscriptionId, filter]));
+          
+          // Also subscribe to a broader filter for compatibility with different implementations
+          const fallbackSubId = Math.random().toString(36).substring(2, 15);
+          ws?.send(JSON.stringify(['REQ', fallbackSubId, { 
+            kinds: [24133],
+            // Some implementations use method=connect
+            '#method': ['connect']
           }]));
+        } else {
+          console.warn('No NIP-46 session secret available for WebSocket subscription');
         }
       };
       
       ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (Array.isArray(data) && data[0] === 'EVENT' && data[2]?.kind === 24133) {
-            const nip46Event = data[2];
+          // Check for NIP-46 auth events
+          if (Array.isArray(data) && data[0] === 'EVENT') {
+            const nostrEvent = data[2];
             
-            // This is a remote auth event, extract the pubkey
-            if (nip46Event.tags.some((tag: string[]) => tag[0] === 'method' && tag[1] === 'connect')) {
-              const pubkey = nip46Event.pubkey;
-              
-              if (pubkey) {
-                // User has logged in via mobile
-                console.log('Mobile login detected with pubkey:', pubkey);
+            if (nostrEvent) {
+              // We're looking for NIP-46 auth events (kind 24133)
+              if (nostrEvent.kind === 24133) {
+                console.log('Received NIP-46 auth event:', nostrEvent);
                 
-                // Connect the user with this pubkey
-                await connectWithNIP46(pubkey);
+                // Get the stored session secret
+                const secret = localStorage.getItem('nostr_connect_session');
+                if (!secret) {
+                  console.warn('No session secret found for NIP-46 authentication');
+                  return;
+                }
+                
+                // Check if this event contains our secret in the tags
+                const secretTag = nostrEvent.tags.find((tag: string[]) => 
+                  tag[0] === 'secret' && tag[1] === secret
+                );
+                
+                if (secretTag) {
+                  // This is our connection response
+                  const pubkey = nostrEvent.pubkey;
+                  if (pubkey) {
+                    // User has authenticated via Amber or other NIP-46 compatible app
+                    console.log('Mobile login authenticated with pubkey:', pubkey);
+                    
+                    // Connect the user with this pubkey
+                    await connectWithNIP46(pubkey);
+                  }
+                }
+              }
+              
+              // Also check for the older connect style (some implementations use method/connect tags)
+              const methodTag = nostrEvent.tags.find((tag: string[]) => 
+                tag[0] === 'method' && tag[1] === 'connect'
+              );
+              
+              if (methodTag && nostrEvent.pubkey) {
+                console.log('Detected legacy connect method with pubkey:', nostrEvent.pubkey);
+                await connectWithNIP46(nostrEvent.pubkey);
               }
             }
           }
