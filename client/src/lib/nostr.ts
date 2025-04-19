@@ -476,6 +476,22 @@ export const getListings = async (
 
     const listings: Map<string, NostrListing> = new Map();
     let timeoutId: NodeJS.Timeout;
+    
+    // First, load listings from local storage
+    try {
+      const storedListingsStr = localStorage.getItem('restr_listings') || '[]';
+      const storedListings = JSON.parse(storedListingsStr) as NostrListing[];
+      
+      // Add stored listings to our map
+      storedListings.forEach(listing => {
+        listings.set(listing.id, listing);
+        console.log(`Loaded listing from local storage: ${listing.id} - ${listing.content.title}`);
+      });
+      
+      console.log(`Loaded ${storedListings.length} listings from local storage`);
+    } catch (storageError) {
+      console.error('Error loading listings from local storage:', storageError);
+    }
 
     const { unsubscribe } = subscribeToEvents(
       filter,
@@ -522,14 +538,10 @@ export const getListings = async (
         timeoutId = setTimeout(() => {
           unsubscribe();
           const results = Array.from(listings.values());
+          console.log(`Found ${results.length} listings from the past 30 days`);
           
-          // If no listings were found, generate some sample listings
-          if (results.length === 0) {
-            const sampleListings = generateSampleListings();
-            resolve(sampleListings);
-          } else {
-            resolve(results);
-          }
+          // Always prioritize our local listings, but add any new ones from the network
+          resolve(results);
         }, 1000); // Extra time after EOSE
       },
       relays
@@ -732,6 +744,29 @@ export const publishListing = async (
     }
 
     if (!event) return { eventId: null };
+
+    // Store the listing in local storage even before trying to publish
+    try {
+      // Get existing listings from local storage
+      const storedListingsStr = localStorage.getItem('restr_listings') || '[]';
+      const storedListings = JSON.parse(storedListingsStr);
+      
+      // Add the new listing
+      const localListing = {
+        id: event.id,
+        pubkey: event.pubkey,
+        created_at: event.created_at,
+        content: listingContent,
+        tags: event.tags
+      };
+      
+      // Add to storage
+      storedListings.push(localListing);
+      localStorage.setItem('restr_listings', JSON.stringify(storedListings));
+      console.log('Listing saved to local storage:', event.id);
+    } catch (storageError) {
+      console.error('Error saving listing to local storage:', storageError);
+    }
 
     const successfulRelays = await publishEvent(event, relays);
     return { 
