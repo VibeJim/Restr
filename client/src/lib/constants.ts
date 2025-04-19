@@ -1,10 +1,6 @@
 export const RELAYS = [
   'wss://relay.damus.io',
-  'wss://relay.nostr.band',
-  'wss://nostr-pub.wellorder.net',
-  'wss://relay.current.fyi',
-  'wss://nos.lol',
-  'wss://relay.snort.social'
+  'wss://nos.lol'
 ];
 
 export const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";

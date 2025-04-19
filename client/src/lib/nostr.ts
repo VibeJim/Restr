@@ -187,12 +187,11 @@ export const publishEvent = async (
   
   // If parallel attempt failed completely, try sequentially with a smaller set of common relays
   console.log('Parallel attempt failed. Trying sequentially with common relays...');
+  // Always use our two selected relays for consistency
   const commonRelays = [
     'wss://relay.damus.io', 
-    'wss://relay.nostr.band', 
-    'wss://nos.lol',
-    'wss://nostr.wine'
-  ].filter(relay => relays.includes(relay));
+    'wss://nos.lol'
+  ];
   
   if (commonRelays.length === 0 && relays.length > 0) {
     // If no common relays were in the original list, use the first one from the original list
