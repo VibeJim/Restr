@@ -465,14 +465,14 @@ export const getListings = async (
   limit: number = 250
 ): Promise<NostrListing[]> => {
   return new Promise((resolve) => {
-    // Calculate timestamp for 7 days ago (604800 seconds)
-    const sevenDaysAgo = Math.floor(Date.now() / 1000) - 604800;
+    // Calculate timestamp for 30 days ago (2592000 seconds) instead of 7 days
+    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 2592000;
     
-    // Use a much larger time window to get all listings from the past week
+    // Use a much larger time window to get all listings from the past month
     const filter: NostrFilter = {
       kinds: [NOSTR_KINDS.LISTING],
-      since: sevenDaysAgo, // Events from 7 days ago
-      limit
+      since: thirtyDaysAgo, // Events from 30 days ago
+      limit: 500 // Increased limit to make sure we get all listings
     };
 
     const listings: Map<string, NostrListing> = new Map();

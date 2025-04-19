@@ -24,20 +24,10 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h3 className="text-base font-semibold mb-4">Hosting</h3>
-            <ul className="space-y-3">
-              <li><Link href="/create-listing" className="text-sm text-neutral-600 hover:underline">List your property</Link></li>
-              <li><Link href="/host-protection" className="text-sm text-neutral-600 hover:underline">Host protection</Link></li>
-              <li><Link href="/host-resources" className="text-sm text-neutral-600 hover:underline">Host resources</Link></li>
-              <li><Link href="/forum" className="text-sm text-neutral-600 hover:underline">Community forum</Link></li>
-            </ul>
-          </div>
-          <div>
             <h3 className="text-base font-semibold mb-4">About</h3>
             <ul className="space-y-3">
               <li><Link href="/about" className="text-sm text-neutral-600 hover:underline">How restr works</Link></li>
               <li><a href="https://github.com/nostr-protocol/nostr" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">NOSTR protocol</a></li>
-              <li><Link href="/careers" className="text-sm text-neutral-600 hover:underline">Careers</Link></li>
               <li><a href="https://github.com/nostrbnb" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">Open source</a></li>
             </ul>
           </div>
