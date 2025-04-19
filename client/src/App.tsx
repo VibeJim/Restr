@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import Listing from "@/pages/listing";
 import About from "@/pages/about";
 import SupportPage from "@/pages/support";
+import CommunityPage from "@/pages/community";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/help" component={SupportPage} />
       <Route path="/safety" component={SupportPage} />
       <Route path="/cancellation" component={SupportPage} />
+      <Route path="/community" component={CommunityPage} />
       <Route component={NotFound} />
     </Switch>
   );

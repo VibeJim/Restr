@@ -7,7 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { DEFAULT_PROFILE_IMAGE, RELAYS } from '@/lib/constants';
 import { NostrEvent, NostrFilter } from '@/types/nostr';
 import { useNostr } from '@/context/nostr-provider';
-import { bech32ToHex, formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
+import { nip19 } from 'nostr-tools';
 
 interface CommunityPost {
   id: string;
@@ -178,7 +179,7 @@ export default function CommunityPage() {
                 author: {
                   name: profile.name || 'Anonymous',
                   picture: profile.picture || DEFAULT_PROFILE_IMAGE,
-                  npub: `npub1${event.pubkey.substring(0, 6)}...`
+                  npub: nip19.npubEncode(event.pubkey).substring(0, 12) + '...'
                 }
               };
               
@@ -503,7 +504,7 @@ export default function CommunityPage() {
                         
                         <div className="mt-4 pt-4 border-t border-neutral-200 flex items-center justify-between">
                           <a 
-                            href={`https://snort.social/e/${post.id}`}
+                            href={`https://snort.social/e/${nip19.noteEncode(post.id)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-neutral-500 hover:text-neutral-900 flex items-center"

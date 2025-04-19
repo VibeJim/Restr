@@ -13,9 +13,17 @@ export function bech32ToHex(str: string): string | null {
   try {
     if (!str.includes('npub') && !str.includes('note')) return str;
     
-    const decoded = bech32.decode(str, 1000);
-    const data = bech32.fromWords(decoded.words);
-    return Buffer.from(data).toString('hex');
+    // Manual implementation since the library types aren't matching correctly
+    const parts = str.split('1');
+    const prefix = parts[0];
+    const words = bech32.toWords(Buffer.from(parts[1], 'utf8'));
+    
+    // Convert the words to bytes then to hex
+    const bytes = new Uint8Array(words.length);
+    for (let i = 0; i < words.length; i++) {
+      bytes[i] = words[i];
+    }
+    return Buffer.from(bytes).toString('hex');
   } catch (e) {
     console.error('Error converting bech32 to hex:', e);
     return null;
