@@ -8,9 +8,9 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-semibold mb-4">Support</h3>
             <ul className="space-y-3">
-              <li><Link href="/help" className="text-sm text-neutral-600 hover:underline">Help Center</Link></li>
-              <li><Link href="/safety" className="text-sm text-neutral-600 hover:underline">Safety information</Link></li>
-              <li><Link href="/cancellation" className="text-sm text-neutral-600 hover:underline">Cancellation options</Link></li>
+              <li><Link href="/support?tab=help-center" className="text-sm text-neutral-600 hover:underline">Help Center</Link></li>
+              <li><Link href="/support?tab=safety" className="text-sm text-neutral-600 hover:underline">Safety information</Link></li>
+              <li><Link href="/support?tab=cancellation" className="text-sm text-neutral-600 hover:underline">Cancellation options</Link></li>
               <li><Link href="/report" className="text-sm text-neutral-600 hover:underline">Report a concern</Link></li>
             </ul>
           </div>
