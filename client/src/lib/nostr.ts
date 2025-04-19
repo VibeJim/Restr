@@ -482,7 +482,28 @@ export const getListings = async (
       filter,
       (event) => {
         try {
-          const content = JSON.parse(event.content) as NostrListingContent;
+          // Skip events that don't have the required structure
+          if (!event || !event.content || !event.id || !event.pubkey) {
+            console.log('Skipping incomplete event:', event?.id || 'unknown');
+            return;
+          }
+          
+          // Try to parse the content
+          let content;
+          try {
+            content = JSON.parse(event.content) as NostrListingContent;
+            
+            // Validate the minimal required fields for a listing
+            if (!content.title || !content.location || !content.price) {
+              console.log(`Skipping invalid listing content for event ${event.id}: missing required fields`);
+              return;
+            }
+          } catch (parseError) {
+            console.log(`Invalid JSON content in event ${event.id}, skipping`);
+            return;
+          }
+          
+          // Create and store the listing
           const listing: NostrListing = {
             id: event.id,
             pubkey: event.pubkey,
@@ -492,8 +513,9 @@ export const getListings = async (
           };
           
           listings.set(event.id, listing);
+          console.log(`Successfully processed listing ${event.id} - ${content.title}`);
         } catch (error) {
-          console.error('Error parsing listing:', error);
+          console.error('Error processing listing event:', error);
         }
       },
       () => {
@@ -520,7 +542,7 @@ export const getListings = async (
       const results = Array.from(listings.values());
       
       // Log how many listings we found
-      console.log(`Found ${results.length} listings from the past 7 days`);
+      console.log(`Found ${results.length} listings from the past 30 days`);
       
       // Sort results by creation date (newest first)
       results.sort((a, b) => b.created_at - a.created_at);

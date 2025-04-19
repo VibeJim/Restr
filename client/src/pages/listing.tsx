@@ -173,8 +173,8 @@ export default function CreateListing() {
           setCreatedListingId(result.eventId);
           setListingCreated(true);
         } else {
-          // Otherwise, redirect to the home page
-          navigate('/');
+          // Otherwise, redirect to the home page with a refresh parameter to trigger a data refresh
+          navigate('/?refresh=' + Date.now());
         }
       } else {
         toast({

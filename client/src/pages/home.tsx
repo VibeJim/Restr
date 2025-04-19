@@ -23,27 +23,47 @@ export default function Home() {
   const [activeLocation, setActiveLocation] = useState('');
   const [visibleListings, setVisibleListings] = useState(8);
 
-  useEffect(() => {
-    const fetchListings = async () => {
-      setIsLoadingListings(true);
-      try {
-        const nostrListings = await getListings();
-        // If we didn't get any NOSTR listings, create a fallback message
-        if (nostrListings.length === 0) {
-          setListings([]);
-        } else {
-          setListings(nostrListings);
-          setFilteredListings(nostrListings);
-        }
-      } catch (error) {
-        console.error('Error fetching listings:', error);
+  // Function to fetch listings that can be called multiple times
+  const fetchListings = async () => {
+    setIsLoadingListings(true);
+    try {
+      console.log("Fetching listings from NOSTR network...");
+      const nostrListings = await getListings();
+      // If we didn't get any NOSTR listings, create a fallback message
+      if (nostrListings.length === 0) {
         setListings([]);
-      } finally {
-        setIsLoadingListings(false);
+        console.log("No listings found from NOSTR network");
+      } else {
+        console.log(`Found ${nostrListings.length} listings from NOSTR network`);
+        setListings(nostrListings);
+        setFilteredListings(nostrListings);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching listings:', error);
+      setListings([]);
+    } finally {
+      setIsLoadingListings(false);
+    }
+  };
 
+  // Initial fetch and refresh based on URL parameters
+  useEffect(() => {
     fetchListings();
+    
+    // Check if there's a refresh parameter in the URL to force refresh listings
+    const urlParams = new URLSearchParams(window.location.search);
+    const refreshParam = urlParams.get('refresh');
+    
+    if (refreshParam) {
+      // Clear the parameter so refreshes don't happen on every render
+      // Replace the current URL without the refresh parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      console.log("Refresh parameter detected, reloading listings");
+      // Re-fetch listings
+      fetchListings();
+    }
   }, []);
 
   useEffect(() => {
