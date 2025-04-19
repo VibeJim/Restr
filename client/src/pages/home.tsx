@@ -8,8 +8,10 @@ import ListingCard, { ListingCardSkeleton } from '@/components/listing-card';
 import ListingDetailModal from '@/components/listing-detail-modal';
 import NostrConnectModal from '@/components/nostr-connect-modal';
 import { getListings } from '@/lib/nostr';
+import { filterUserCreatedListings, filterUserViewedListings } from '@/lib/user-history';
 import { NostrListing } from '@/types/nostr';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
   const [listings, setListings] = useState<NostrListing[]>([]);
@@ -193,42 +195,129 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Listings Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {isLoadingListings ? (
-              // Show skeletons while loading
-              Array(8).fill(0).map((_, index) => (
-                <ListingCardSkeleton key={index} />
-              ))
-            ) : filteredListings.length > 0 ? (
-              // Show filtered listings
-              filteredListings.slice(0, visibleListings).map((listing) => (
-                <ListingCard 
-                  key={listing.id} 
-                  listing={listing} 
-                  onClick={handleListingClick} 
-                />
-              ))
-            ) : (
-              // No listings found
-              <div className="col-span-full text-center py-12">
-                <h3 className="text-xl font-semibold mb-2">No listings found</h3>
-                <p className="text-neutral-500 mb-6">
-                  We couldn't find any listings matching your criteria. Try adjusting your filters.
-                </p>
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    setActiveCategory('All homes');
-                    setActiveFilters({});
-                    setActiveLocation('');
-                  }}
-                >
-                  Clear all filters
-                </Button>
+          {/* Listings Tabs */}
+          <Tabs defaultValue="all" className="mb-8">
+            <TabsList className="mb-6">
+              <TabsTrigger value="all">All Listings</TabsTrigger>
+              <TabsTrigger value="viewed">Recently Viewed</TabsTrigger>
+              <TabsTrigger value="created">Your Listings</TabsTrigger>
+            </TabsList>
+            
+            {/* All Listings Tab */}
+            <TabsContent value="all">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {isLoadingListings ? (
+                  // Show skeletons while loading
+                  Array(8).fill(0).map((_, index) => (
+                    <ListingCardSkeleton key={index} />
+                  ))
+                ) : filteredListings.length > 0 ? (
+                  // Show filtered listings
+                  filteredListings.slice(0, visibleListings).map((listing) => (
+                    <ListingCard 
+                      key={listing.id} 
+                      listing={listing} 
+                      onClick={handleListingClick} 
+                    />
+                  ))
+                ) : (
+                  // No listings found
+                  <div className="col-span-full text-center py-12">
+                    <h3 className="text-xl font-semibold mb-2">No listings found</h3>
+                    <p className="text-neutral-500 mb-6">
+                      We couldn't find any listings matching your criteria. Try adjusting your filters.
+                    </p>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setActiveCategory('All homes');
+                        setActiveFilters({});
+                        setActiveLocation('');
+                      }}
+                    >
+                      Clear all filters
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+            
+            {/* Recently Viewed Tab */}
+            <TabsContent value="viewed">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {isLoadingListings ? (
+                  // Show skeletons while loading
+                  Array(4).fill(0).map((_, index) => (
+                    <ListingCardSkeleton key={index} />
+                  ))
+                ) : (() => {
+                  const viewedListings = filterUserViewedListings(listings);
+                  return viewedListings.length > 0 ? (
+                    // Show viewed listings
+                    viewedListings.map((listing) => (
+                      <ListingCard 
+                        key={listing.id} 
+                        listing={listing} 
+                        onClick={handleListingClick} 
+                      />
+                    ))
+                  ) : (
+                    // No viewed listings
+                    <div className="col-span-full text-center py-12">
+                      <h3 className="text-xl font-semibold mb-2">No recent views</h3>
+                      <p className="text-neutral-500 mb-6">
+                        Properties you view will appear here so you can easily find them again.
+                      </p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
+                          if (tabAll) tabAll.click();
+                        }}
+                      >
+                        Browse properties
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </TabsContent>
+            
+            {/* Your Listings Tab */}
+            <TabsContent value="created">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {isLoadingListings ? (
+                  // Show skeletons while loading
+                  Array(4).fill(0).map((_, index) => (
+                    <ListingCardSkeleton key={index} />
+                  ))
+                ) : (() => {
+                  const createdListings = filterUserCreatedListings(listings);
+                  return createdListings.length > 0 ? (
+                    // Show created listings
+                    createdListings.map((listing) => (
+                      <ListingCard 
+                        key={listing.id} 
+                        listing={listing} 
+                        onClick={handleListingClick} 
+                      />
+                    ))
+                  ) : (
+                    // No created listings
+                    <div className="col-span-full text-center py-12">
+                      <h3 className="text-xl font-semibold mb-2">No listings created</h3>
+                      <p className="text-neutral-500 mb-6">
+                        Properties you create will appear here for easy access.
+                      </p>
+                      <Button asChild>
+                        <a href="/listing">Create a listing</a>
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Show More Button */}
           {filteredListings.length > visibleListings && (

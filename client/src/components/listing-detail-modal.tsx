@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import CalendarAvailability from './calendar-availability';
 import ListingComments from './listing-comments';
+import { saveViewedListing } from '@/lib/user-history';
 
 interface ListingDetailModalProps {
   isOpen: boolean;
@@ -29,6 +30,9 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
   useEffect(() => {
     const loadHostData = async () => {
       if (listing && isOpen) {
+        // Save this listing to viewed history
+        saveViewedListing(listing);
+        
         setIsLoadingHost(true);
         try {
           const hostData = await getUser(listing.pubkey);

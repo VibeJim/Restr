@@ -769,6 +769,22 @@ export const publishListing = async (
       storedListings.push(localListing);
       localStorage.setItem('restr_listings', JSON.stringify(storedListings));
       console.log('Listing saved to local storage:', event.id);
+      
+      // Save to user created listings history
+      try {
+        // Get existing created listings from local storage
+        const createdListingsStr = localStorage.getItem('restr_user_created_listings') || '[]';
+        let createdListings = JSON.parse(createdListingsStr);
+        
+        // Add the new listing ID if it doesn't exist already
+        if (!createdListings.includes(event.id)) {
+          createdListings.push(event.id);
+          localStorage.setItem('restr_user_created_listings', JSON.stringify(createdListings));
+          console.log('Listing saved to user created history:', event.id);
+        }
+      } catch (historyError) {
+        console.error('Error saving listing to user history:', historyError);
+      }
     } catch (storageError) {
       console.error('Error saving listing to local storage:', storageError);
     }
