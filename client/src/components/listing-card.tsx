@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NostrListing } from '@/types/nostr';
 import { Skeleton } from '@/components/ui/skeleton';
+import { saveListing, unsaveListing, isListingSaved } from '@/lib/user-history';
 
 interface ListingCardProps {
   listing: NostrListing;
@@ -11,13 +12,29 @@ export default function ListingCard({ listing, onClick }: ListingCardProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // Check if this listing is already saved on mount
+  useEffect(() => {
+    if (listing && listing.id) {
+      setIsFavorite(isListingSaved(listing.id));
+    }
+  }, [listing]);
+
   const handleImageLoad = () => {
     setIsImageLoaded(true);
   };
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
+    const newState = !isFavorite;
+    setIsFavorite(newState);
+    
+    if (newState) {
+      // Save to favorites
+      saveListing(listing);
+    } else {
+      // Remove from favorites
+      unsaveListing(listing.id);
+    }
   };
 
   // If we don't have a fully populated listing object yet

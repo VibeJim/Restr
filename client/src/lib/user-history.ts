@@ -3,10 +3,12 @@ import { NostrListing } from '@/types/nostr';
 // Storage keys
 const USER_CREATED_LISTINGS_KEY = 'restr_user_created_listings';
 const USER_VIEWED_LISTINGS_KEY = 'restr_user_viewed_listings';
+const USER_SAVED_LISTINGS_KEY = 'restr_user_saved_listings';
 
 interface UserListingHistory {
   createdListings: string[]; // IDs of listings created by the user
   viewedListings: string[]; // IDs of listings viewed by the user
+  savedListings: string[]; // IDs of listings saved by the user
 }
 
 /**
@@ -56,6 +58,68 @@ export const saveViewedListing = (listing: NostrListing): void => {
 };
 
 /**
+ * Save a listing to the user's saved listings
+ */
+export const saveListing = (listing: NostrListing): void => {
+  try {
+    // Get current saved listings
+    const history = getUserHistory();
+    
+    // Add the listing ID if it doesn't exist
+    if (!history.savedListings?.includes(listing.id)) {
+      if (!history.savedListings) {
+        history.savedListings = [];
+      }
+      // Add to the beginning for most recent first
+      history.savedListings.unshift(listing.id);
+      
+      // Save updated history
+      localStorage.setItem(USER_SAVED_LISTINGS_KEY, JSON.stringify(history.savedListings));
+      console.log(`Listing ${listing.id} saved to favorites`);
+    }
+  } catch (error) {
+    console.error('Error saving listing to favorites:', error);
+  }
+};
+
+/**
+ * Remove a listing from the user's saved listings
+ */
+export const unsaveListing = (listingId: string): void => {
+  try {
+    // Get current saved listings
+    const history = getUserHistory();
+    
+    // If there are no saved listings or the listing isn't saved, do nothing
+    if (!history.savedListings || !history.savedListings.includes(listingId)) {
+      return;
+    }
+    
+    // Remove the listing ID
+    history.savedListings = history.savedListings.filter(id => id !== listingId);
+    
+    // Save updated history
+    localStorage.setItem(USER_SAVED_LISTINGS_KEY, JSON.stringify(history.savedListings));
+    console.log(`Listing ${listingId} removed from favorites`);
+  } catch (error) {
+    console.error('Error removing listing from favorites:', error);
+  }
+};
+
+/**
+ * Check if a listing is saved by the user
+ */
+export const isListingSaved = (listingId: string): boolean => {
+  try {
+    const history = getUserHistory();
+    return history.savedListings?.includes(listingId) || false;
+  } catch (error) {
+    console.error('Error checking if listing is saved:', error);
+    return false;
+  }
+};
+
+/**
  * Get the user's listing history
  */
 export const getUserHistory = (): UserListingHistory => {
@@ -68,10 +132,14 @@ export const getUserHistory = (): UserListingHistory => {
     const viewedListingsJson = localStorage.getItem(USER_VIEWED_LISTINGS_KEY);
     const viewedListings = viewedListingsJson ? JSON.parse(viewedListingsJson) : [];
     
-    return { createdListings, viewedListings };
+    // Get saved listings from storage
+    const savedListingsJson = localStorage.getItem(USER_SAVED_LISTINGS_KEY);
+    const savedListings = savedListingsJson ? JSON.parse(savedListingsJson) : [];
+    
+    return { createdListings, viewedListings, savedListings };
   } catch (error) {
     console.error('Error getting user history:', error);
-    return { createdListings: [], viewedListings: [] };
+    return { createdListings: [], viewedListings: [], savedListings: [] };
   }
 };
 
@@ -95,6 +163,22 @@ export const filterUserViewedListings = (listings: NostrListing[]): NostrListing
   
   // Return listings in the order they were viewed (most recent first)
   return history.viewedListings
+    .map(id => listingMap.get(id))
+    .filter((listing): listing is NostrListing => !!listing);
+};
+
+/**
+ * Filter a list of listings to show only those saved by the user
+ */
+export const filterUserSavedListings = (listings: NostrListing[]): NostrListing[] => {
+  const history = getUserHistory();
+  
+  // Build a map of listings by ID for quick lookup
+  const listingMap = new Map<string, NostrListing>();
+  listings.forEach(listing => listingMap.set(listing.id, listing));
+  
+  // Return listings in the order they were saved (most recent first)
+  return (history.savedListings || [])
     .map(id => listingMap.get(id))
     .filter((listing): listing is NostrListing => !!listing);
 };
