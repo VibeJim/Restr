@@ -177,17 +177,6 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <CategoryFilter onCategoryChange={handleCategoryChange} />
-              <Button 
-                variant="outline" 
-                onClick={fetchListings} 
-                disabled={isLoadingListings} 
-                className="flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {isLoadingListings ? "Refreshing..." : "Refresh"}
-              </Button>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Filters onFilterChange={handleFilterChange} />
@@ -195,67 +184,41 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Listings Tabs */}
-          <Tabs defaultValue="all" className="mb-8">
-            <TabsList className="mb-6">
-              <TabsTrigger value="all">All Listings</TabsTrigger>
-              <TabsTrigger value="viewed">Recently Viewed</TabsTrigger>
-              <TabsTrigger value="saved">Saved</TabsTrigger>
-              <TabsTrigger value="created">Your Listings</TabsTrigger>
-            </TabsList>
-            
-            {/* All Listings Tab */}
-            <TabsContent value="all">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {isLoadingListings ? (
-                  // Show skeletons while loading
-                  Array(8).fill(0).map((_, index) => (
-                    <ListingCardSkeleton key={index} />
-                  ))
-                ) : filteredListings.length > 0 ? (
-                  // Show filtered listings
-                  filteredListings.slice(0, visibleListings).map((listing) => (
-                    <ListingCard 
-                      key={listing.id} 
-                      listing={listing} 
-                      onClick={handleListingClick} 
-                    />
-                  ))
-                ) : (
-                  // No listings found
-                  <div className="col-span-full text-center py-12">
-                    <h3 className="text-xl font-semibold mb-2">No listings found</h3>
-                    <p className="text-neutral-500 mb-6">
-                      We couldn't find any listings matching your criteria. Try adjusting your filters.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        setActiveCategory('All homes');
-                        setActiveFilters({});
-                        setActiveLocation('');
-                      }}
-                    >
-                      Clear all filters
-                    </Button>
-                  </div>
-                )}
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
+            <Tabs defaultValue="all" className="w-full">
+              <div className="flex flex-col sm:flex-row items-center justify-between mb-4">
+                <TabsList>
+                  <TabsTrigger value="all">All Listings</TabsTrigger>
+                  <TabsTrigger value="viewed">Recently Viewed</TabsTrigger>
+                  <TabsTrigger value="saved">Saved</TabsTrigger>
+                  <TabsTrigger value="created">Your Listings</TabsTrigger>
+                </TabsList>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={fetchListings} 
+                  disabled={isLoadingListings} 
+                  className="flex items-center mt-4 sm:mt-0"
+                  size="sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {isLoadingListings ? "Refreshing..." : "Refresh"}
+                </Button>
               </div>
-            </TabsContent>
-            
-            {/* Recently Viewed Tab */}
-            <TabsContent value="viewed">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {isLoadingListings ? (
-                  // Show skeletons while loading
-                  Array(4).fill(0).map((_, index) => (
-                    <ListingCardSkeleton key={index} />
-                  ))
-                ) : (() => {
-                  const viewedListings = filterUserViewedListings(listings);
-                  return viewedListings.length > 0 ? (
-                    // Show viewed listings
-                    viewedListings.map((listing) => (
+              
+              {/* All Listings Tab */}
+              <TabsContent value="all">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {isLoadingListings ? (
+                    // Show skeletons while loading
+                    Array(8).fill(0).map((_, index) => (
+                      <ListingCardSkeleton key={index} />
+                    ))
+                  ) : filteredListings.length > 0 ? (
+                    // Show filtered listings
+                    filteredListings.slice(0, visibleListings).map((listing) => (
                       <ListingCard 
                         key={listing.id} 
                         listing={listing} 
@@ -263,103 +226,145 @@ export default function Home() {
                       />
                     ))
                   ) : (
-                    // No viewed listings
+                    // No listings found
                     <div className="col-span-full text-center py-12">
-                      <h3 className="text-xl font-semibold mb-2">No recent views</h3>
+                      <h3 className="text-xl font-semibold mb-2">No listings found</h3>
                       <p className="text-neutral-500 mb-6">
-                        Properties you view will appear here so you can easily find them again.
+                        We couldn't find any listings matching your criteria. Try adjusting your filters.
                       </p>
                       <Button 
                         variant="outline"
                         onClick={() => {
-                          const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
-                          if (tabAll) tabAll.click();
+                          setActiveCategory('All homes');
+                          setActiveFilters({});
+                          setActiveLocation('');
                         }}
                       >
-                        Browse properties
+                        Clear all filters
                       </Button>
                     </div>
-                  );
-                })()}
-              </div>
-            </TabsContent>
-            
-            {/* Saved Listings Tab */}
-            <TabsContent value="saved">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {isLoadingListings ? (
-                  // Show skeletons while loading
-                  Array(4).fill(0).map((_, index) => (
-                    <ListingCardSkeleton key={index} />
-                  ))
-                ) : (() => {
-                  const savedListings = filterUserSavedListings(listings);
-                  return savedListings.length > 0 ? (
-                    // Show saved listings
-                    savedListings.map((listing) => (
-                      <ListingCard 
-                        key={listing.id} 
-                        listing={listing} 
-                        onClick={handleListingClick} 
-                      />
+                  )}
+                </div>
+              </TabsContent>
+              
+              {/* Recently Viewed Tab */}
+              <TabsContent value="viewed">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {isLoadingListings ? (
+                    // Show skeletons while loading
+                    Array(4).fill(0).map((_, index) => (
+                      <ListingCardSkeleton key={index} />
                     ))
-                  ) : (
-                    // No saved listings
-                    <div className="col-span-full text-center py-12">
-                      <h3 className="text-xl font-semibold mb-2">No saved listings</h3>
-                      <p className="text-neutral-500 mb-6">
-                        Click the heart icon on any listing to save it for later.
-                      </p>
-                      <Button 
-                        variant="outline"
-                        onClick={() => {
-                          const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
-                          if (tabAll) tabAll.click();
-                        }}
-                      >
-                        Browse properties
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
-            </TabsContent>
-            
-            {/* Your Listings Tab */}
-            <TabsContent value="created">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {isLoadingListings ? (
-                  // Show skeletons while loading
-                  Array(4).fill(0).map((_, index) => (
-                    <ListingCardSkeleton key={index} />
-                  ))
-                ) : (() => {
-                  const createdListings = filterUserCreatedListings(listings);
-                  return createdListings.length > 0 ? (
-                    // Show created listings
-                    createdListings.map((listing) => (
-                      <ListingCard 
-                        key={listing.id} 
-                        listing={listing} 
-                        onClick={handleListingClick} 
-                      />
+                  ) : (() => {
+                    const viewedListings = filterUserViewedListings(listings);
+                    return viewedListings.length > 0 ? (
+                      // Show viewed listings
+                      viewedListings.map((listing) => (
+                        <ListingCard 
+                          key={listing.id} 
+                          listing={listing} 
+                          onClick={handleListingClick} 
+                        />
+                      ))
+                    ) : (
+                      // No viewed listings
+                      <div className="col-span-full text-center py-12">
+                        <h3 className="text-xl font-semibold mb-2">No recent views</h3>
+                        <p className="text-neutral-500 mb-6">
+                          Properties you view will appear here so you can easily find them again.
+                        </p>
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
+                            if (tabAll) tabAll.click();
+                          }}
+                        >
+                          Browse properties
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </TabsContent>
+              
+              {/* Saved Listings Tab */}
+              <TabsContent value="saved">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {isLoadingListings ? (
+                    // Show skeletons while loading
+                    Array(4).fill(0).map((_, index) => (
+                      <ListingCardSkeleton key={index} />
                     ))
-                  ) : (
-                    // No created listings
-                    <div className="col-span-full text-center py-12">
-                      <h3 className="text-xl font-semibold mb-2">No listings created</h3>
-                      <p className="text-neutral-500 mb-6">
-                        Properties you create will appear here for easy access.
-                      </p>
-                      <Button asChild>
-                        <a href="/listing">Create a listing</a>
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
-            </TabsContent>
-          </Tabs>
+                  ) : (() => {
+                    const savedListings = filterUserSavedListings(listings);
+                    return savedListings.length > 0 ? (
+                      // Show saved listings
+                      savedListings.map((listing) => (
+                        <ListingCard 
+                          key={listing.id} 
+                          listing={listing} 
+                          onClick={handleListingClick} 
+                        />
+                      ))
+                    ) : (
+                      // No saved listings
+                      <div className="col-span-full text-center py-12">
+                        <h3 className="text-xl font-semibold mb-2">No saved listings</h3>
+                        <p className="text-neutral-500 mb-6">
+                          Click the heart icon on any listing to save it for later.
+                        </p>
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
+                            if (tabAll) tabAll.click();
+                          }}
+                        >
+                          Browse properties
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </TabsContent>
+              
+              {/* Your Listings Tab */}
+              <TabsContent value="created">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {isLoadingListings ? (
+                    // Show skeletons while loading
+                    Array(4).fill(0).map((_, index) => (
+                      <ListingCardSkeleton key={index} />
+                    ))
+                  ) : (() => {
+                    const createdListings = filterUserCreatedListings(listings);
+                    return createdListings.length > 0 ? (
+                      // Show created listings
+                      createdListings.map((listing) => (
+                        <ListingCard 
+                          key={listing.id} 
+                          listing={listing} 
+                          onClick={handleListingClick} 
+                        />
+                      ))
+                    ) : (
+                      // No created listings
+                      <div className="col-span-full text-center py-12">
+                        <h3 className="text-xl font-semibold mb-2">No listings created</h3>
+                        <p className="text-neutral-500 mb-6">
+                          Properties you create will appear here for easy access.
+                        </p>
+                        <Button asChild>
+                          <a href="/listing">Create a listing</a>
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
 
           {/* Show More Button */}
           {filteredListings.length > visibleListings && (
