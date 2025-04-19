@@ -167,11 +167,16 @@ export default function CreateListing() {
           variant: "default"
         });
         
-        // If we generated a new key, save it and show the success screen
+        // If we generated a new key, save it and show the success screen with key information
         if (result.keyPair) {
           setGeneratedKeyPair(result.keyPair);
           setCreatedListingId(result.eventId);
           setListingCreated(true);
+          
+          // After showing the key info, automatically redirect to home page after a delay
+          setTimeout(() => {
+            navigate('/?refresh=' + Date.now());
+          }, 10000); // 10 seconds delay to allow user to save keys
         } else {
           // Otherwise, redirect to the home page with a refresh parameter to trigger a data refresh
           navigate('/?refresh=' + Date.now());

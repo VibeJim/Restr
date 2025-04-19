@@ -51,9 +51,12 @@ export default function ListingSuccess({ keyPair, listingId }: ListingSuccessPro
         <p className="text-center text-neutral-600 mb-4">
           Your property has been listed on the NOSTR network.
         </p>
-        <div className="text-center font-medium">
+        <div className="text-center font-medium mb-2">
           Listing ID: <span className="font-mono text-sm bg-neutral-100 p-1 rounded">{listingId.substring(0, 8)}...{listingId.substring(listingId.length - 8)}</span>
         </div>
+        <p className="text-center text-sm text-neutral-500">
+          You will be automatically redirected to the home page in a few seconds, where your new listing will appear.
+        </p>
       </Card>
 
       {keyPair && (

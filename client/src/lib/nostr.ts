@@ -484,11 +484,16 @@ export const getListings = async (
       
       // Add stored listings to our map
       storedListings.forEach(listing => {
-        listings.set(listing.id, listing);
-        console.log(`Loaded listing from local storage: ${listing.id} - ${listing.content.title}`);
+        // Basic validation to ensure this is a valid listing object
+        if (listing && listing.id && listing.content && 
+            listing.content.title && listing.content.location && 
+            typeof listing.content.price === 'number') {
+          listings.set(listing.id, listing);
+          console.log(`Loaded listing from local storage: ${listing.id} - ${listing.content.title}`);
+        }
       });
       
-      console.log(`Loaded ${storedListings.length} listings from local storage`);
+      console.log(`Loaded ${listings.size} listings from local storage`);
     } catch (storageError) {
       console.error('Error loading listings from local storage:', storageError);
     }
