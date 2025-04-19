@@ -183,6 +183,9 @@ export default function Header({ onLocationChange }: HeaderProps) {
                     <Link href="/about" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       About restr
                     </Link>
+                    <Link href="/community" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
+                      Community
+                    </Link>
                     <Link href="/help" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       Help Center
                     </Link>

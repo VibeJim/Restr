@@ -17,9 +17,10 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-semibold mb-4">Community</h3>
             <ul className="space-y-3">
-              <li><Link href="/forum" className="text-sm text-neutral-600 hover:underline">restr community forum</Link></li>
-              <li><Link href="/host-guide" className="text-sm text-neutral-600 hover:underline">How to host responsibly</Link></li>
-              <li><a href="https://nostr.com" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">NOSTR community</a></li>
+              <li><Link href="/community" className="text-sm text-neutral-600 hover:underline">restr community</Link></li>
+              <li><Link href="/community?tab=guide" className="text-sm text-neutral-600 hover:underline">How to host responsibly</Link></li>
+              <li><Link href="/community?tab=posts" className="text-sm text-neutral-600 hover:underline">Community notes</Link></li>
+              <li><a href="https://nostr.com" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:underline">NOSTR protocol</a></li>
             </ul>
           </div>
           <div>
