@@ -174,11 +174,11 @@ export default function Home() {
       
       <main className="flex-grow py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col justify-between items-start mb-8 gap-4">
+            <div className="w-full">
               <CategoryFilter onCategoryChange={handleCategoryChange} />
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex flex-col w-full gap-4">
               <Filters onFilterChange={handleFilterChange} />
               <NostrConnectionInfo onConnectClick={openNostrModal} />
             </div>
