@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { NostrListing } from '@/types/nostr';
 import { useNostr } from '@/context/nostr-provider';
-import { createSignedEvent } from '@/lib/nostr';
+import { createSignedEvent, publishEvent } from '@/lib/nostr';
+import { RELAYS } from '@/lib/constants';
 
 interface ShareNostrModalProps {
   isOpen: boolean;
@@ -14,29 +15,28 @@ interface ShareNostrModalProps {
 }
 
 export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostrModalProps) {
-  const [isSharing, setIsSharing] = useState(false);
+  const [isSharing, setIsSharing] = React.useState(false);
   const { toast } = useToast();
   const { user, isConnected, connect } = useNostr();
   
-  // Default note text with listing info
-  const defaultNote = listing 
-    ? `Check out this amazing listing on Restr: ${listing.content.title} ${
-        listing.content.location ? `in ${listing.content.location}` : ''
-      }\n\nhttps://nostr-stay.replit.app/listing/${listing.id}`
-    : `Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app`;
-    
-  const [noteText, setNoteText] = useState(defaultNote);
-  
-  // Update the noteText when the listing changes
-  useEffect(() => {
-    if (listing) {
-      setNoteText(`Check out this amazing listing on Restr: ${listing.content.title} ${
-        listing.content.location ? `in ${listing.content.location}` : ''
-      }\n\nhttps://nostr-stay.replit.app/listing/${listing.id}`);
-    } else {
-      setNoteText(`Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app`);
+  // Format the message for the listing
+  const getDefaultMessage = React.useCallback(() => {
+    if (!listing) {
+      return "Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app";
     }
+    
+    return `Check out this amazing listing on Restr: ${listing.content.title} ${
+      listing.content.location ? `in ${listing.content.location}` : ''
+    }\n\nhttps://nostr-stay.replit.app/listing/${listing.id}`;
   }, [listing]);
+  
+  // Initialize note text
+  const [noteText, setNoteText] = React.useState(() => getDefaultMessage());
+  
+  // Update note text when listing changes
+  React.useEffect(() => {
+    setNoteText(getDefaultMessage());
+  }, [listing, getDefaultMessage]);
 
   const handleConnectNostr = async () => {
     try {
@@ -71,39 +71,37 @@ export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostr
     setIsSharing(true);
     
     try {
-      // Create a signed kind 1 note event
-      const relayUrl = "wss://relay.damus.io"; // Use a reliable relay
-      
-      // Prepare tags
-      const tags: string[][] = [
+      // Prepare tags for the note
+      const tags = [
         ["t", "restr"],
         ["t", "rental"],
         ["r", "https://nostr-stay.replit.app"]
       ];
       
-      // Add the listing reference tag if we have a listing
+      // Add the listing reference if available
       if (listing) {
-        tags.push(["e", listing.id, relayUrl, "reply"]);
+        tags.push(["e", listing.id, "", "reply"]);
       }
       
-      // Call createSignedEvent with the correct signature (kind, content, tags)
+      // Create a kind 1 text note
       const event = await createSignedEvent(1, noteText, tags);
-      
-      // Log the event for debugging
-      console.log("Created Nostr share event:", event);
       
       if (!event) {
         throw new Error("Failed to create event");
       }
       
-      // This event will be published through the Nostr provider
+      console.log("Created Nostr share event:", event);
+      
+      // Publish the event to relays
+      const publishResult = await publishEvent(event, RELAYS);
+      console.log("Publish result:", publishResult);
+      
       toast({
         title: "Success!",
         description: "Your listing has been shared on Nostr!",
         variant: "default"
       });
       
-      // Close the modal
       onClose();
     } catch (error) {
       console.error('Error sharing to Nostr:', error);
