@@ -393,7 +393,7 @@ Please let me know if this property is available during these dates.
                         <span className="text-sm">Identity verified</span>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm text-neutral-600">
+                    <p className="mt-4 text-sm text-neutral-600 overflow-hidden">
                       NOSTR: {host?.npub || 'Loading...'} 
                       <i className="ri-information-line text-xs cursor-pointer ml-1" title="NOSTR public key"></i>
                     </p>
