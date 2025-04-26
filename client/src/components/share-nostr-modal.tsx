@@ -26,6 +26,17 @@ export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostr
     : `Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app`;
     
   const [noteText, setNoteText] = useState(defaultNote);
+  
+  // Update the noteText when the listing changes
+  useEffect(() => {
+    if (listing) {
+      setNoteText(`Check out this amazing listing on Restr: ${listing.content.title} ${
+        listing.content.location ? `in ${listing.content.location}` : ''
+      }\n\nhttps://nostr-stay.replit.app/listing/${listing.id}`);
+    } else {
+      setNoteText(`Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app`);
+    }
+  }, [listing]);
 
   const handleConnectNostr = async () => {
     try {
@@ -61,16 +72,25 @@ export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostr
     
     try {
       // Create a signed kind 1 note event
-      const event = await createSignedEvent({
-        kind: 1,
-        content: noteText,
-        tags: [
-          ["t", "restr"],
-          ["t", "rental"],
-          ...(listing ? [["e", listing.id, "", "mention"]] : []),
-          ["r", "https://nostr-stay.replit.app"]
-        ]
-      });
+      const relayUrl = "wss://relay.damus.io"; // Use a reliable relay
+      
+      // Prepare tags
+      const tags: string[][] = [
+        ["t", "restr"],
+        ["t", "rental"],
+        ["r", "https://nostr-stay.replit.app"]
+      ];
+      
+      // Add the listing reference tag if we have a listing
+      if (listing) {
+        tags.push(["e", listing.id, relayUrl, "reply"]);
+      }
+      
+      // Call createSignedEvent with the correct signature (kind, content, tags)
+      const event = await createSignedEvent(1, noteText, tags);
+      
+      // Log the event for debugging
+      console.log("Created Nostr share event:", event);
       
       if (!event) {
         throw new Error("Failed to create event");

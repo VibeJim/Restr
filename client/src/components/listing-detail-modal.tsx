@@ -183,6 +183,7 @@ Please let me know if this property is available during these dates.
             size="icon" 
             className="p-2 rounded-full hover:bg-neutral-100 transition" 
             onClick={onClose}
+            aria-label="Close"
           >
             <i className="ri-close-line text-lg"></i>
           </Button>
