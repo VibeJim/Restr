@@ -24,6 +24,7 @@ export default function Home() {
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
   const [activeLocation, setActiveLocation] = useState('');
   const [visibleListings, setVisibleListings] = useState(8);
+  const [activeTab, setActiveTab] = useState('all');
 
   // Function to fetch listings that can be called multiple times
   const fetchListings = async () => {
@@ -52,19 +53,22 @@ export default function Home() {
   useEffect(() => {
     fetchListings();
     
-    // Check if there's a refresh parameter in the URL to force refresh listings
+    // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const refreshParam = urlParams.get('refresh');
+    const tabParam = urlParams.get('tab');
     
+    // Handle refresh parameter
     if (refreshParam) {
-      // Clear the parameter so refreshes don't happen on every render
-      // Replace the current URL without the refresh parameter
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-      
       console.log("Refresh parameter detected, reloading listings");
       // Re-fetch listings
       fetchListings();
+    }
+    
+    // Handle tab parameter
+    if (tabParam && ['all', 'viewed', 'saved', 'created'].includes(tabParam)) {
+      console.log(`Tab parameter detected: ${tabParam}`);
+      setActiveTab(tabParam);
     }
   }, []);
 
@@ -185,7 +189,7 @@ export default function Home() {
           </div>
           
           <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
-            <Tabs defaultValue="all" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex flex-col sm:flex-row items-center justify-between mb-4">
                 <TabsList>
                   <TabsTrigger value="all">All Listings</TabsTrigger>
