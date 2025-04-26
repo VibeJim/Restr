@@ -5,6 +5,8 @@ import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 import NostrConnectModal from './nostr-connect-modal';
 import { Button } from './ui/button';
 import { RestrLogoFull } from './restr-logo';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { filterUserCreatedListings, filterUserViewedListings, filterUserSavedListings } from '@/lib/user-history';
 
 export interface HeaderProps {
   onLocationChange?: (location: string) => void;
@@ -16,6 +18,7 @@ export default function Header({ onLocationChange }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNostrModal, setShowNostrModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
 
   const toggleUserMenu = () => {
     setShowUserMenu(!showUserMenu);
@@ -28,6 +31,32 @@ export default function Header({ onLocationChange }: HeaderProps) {
 
   const closeNostrModal = () => {
     setShowNostrModal(false);
+  };
+  
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // Close the menu after selection
+    setTimeout(() => setShowUserMenu(false), 100);
+    
+    // Navigate based on tab selection
+    switch(value) {
+      case 'all':
+        setLocation('/?tab=all');
+        break;
+      case 'viewed':
+        setLocation('/?tab=viewed');
+        break;
+      case 'saved':
+        setLocation('/?tab=saved');
+        break;
+      case 'created':
+        setLocation('/?tab=created');
+        break;
+      default:
+        setLocation('/');
+        break;
+    }
   };
   
   const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -172,6 +201,18 @@ export default function Header({ onLocationChange }: HeaderProps) {
                               {user.npub}
                             </div>
                           </div>
+                        </div>
+                        
+                        {/* Listings Tabs */}
+                        <div className="mt-3">
+                          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                            <TabsList className="w-full">
+                              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                              <TabsTrigger value="viewed" className="text-xs">Viewed</TabsTrigger>
+                              <TabsTrigger value="saved" className="text-xs">Saved</TabsTrigger>
+                              <TabsTrigger value="created" className="text-xs">Yours</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
                         </div>
                       </div>
                     )}

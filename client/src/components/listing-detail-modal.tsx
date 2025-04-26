@@ -178,15 +178,7 @@ Please let me know if this property is available during these dates.
         <DialogTitle className="sr-only">{listing.content.title}</DialogTitle>
         {/* Modal Header */}
         <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="p-2 rounded-full hover:bg-neutral-100 transition" 
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <i className="ri-close-line text-lg"></i>
-          </Button>
+
           <div className="flex items-center space-x-4">
             <Button 
               variant="ghost" 
