@@ -109,19 +109,29 @@ export default function Header({ onLocationChange }: HeaderProps) {
                 onClick={toggleUserMenu}
                 className="flex items-center space-x-2 border border-neutral-300 p-2 rounded-full shadow-sm hover:shadow-md transition-shadow"
               >
-                <i className="ri-menu-line text-neutral-600"></i>
-                {isConnected && user?.profile?.picture ? (
-                  <div className="h-8 w-8 rounded-full overflow-hidden">
-                    <img 
-                      src={user.profile.picture || DEFAULT_PROFILE_IMAGE} 
-                      alt="User profile" 
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                {isConnected && user ? (
+                  <>
+                    <i className="ri-menu-line text-neutral-600"></i>
+                    <div className="hidden sm:flex items-center space-x-2 pr-1">
+                      <span className="text-sm font-medium truncate max-w-[100px]">
+                        {user.profile?.name || 'NOSTR User'}
+                      </span>
+                    </div>
+                    <div className="h-8 w-8 rounded-full overflow-hidden">
+                      <img 
+                        src={user.profile?.picture || DEFAULT_PROFILE_IMAGE} 
+                        alt="User profile" 
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </>
                 ) : (
-                  <div className="bg-neutral-700 text-white rounded-full h-8 w-8 flex items-center justify-center">
-                    <i className="ri-user-3-line"></i>
-                  </div>
+                  <>
+                    <i className="ri-menu-line text-neutral-600"></i>
+                    <div className="bg-neutral-700 text-white rounded-full h-8 w-8 flex items-center justify-center">
+                      <i className="ri-user-3-line"></i>
+                    </div>
+                  </>
                 )}
               </button>
 
@@ -156,9 +166,9 @@ export default function Header({ onLocationChange }: HeaderProps) {
                           </div>
                           <div>
                             <div className="font-medium">
-                              {user.profile?.name || user.npub}
+                              {user.profile?.name || 'NOSTR User'}
                             </div>
-                            <div className="text-sm text-neutral-500 truncate max-w-[200px]">
+                            <div className="text-xs text-neutral-500 truncate max-w-[200px] font-mono">
                               {user.npub}
                             </div>
                           </div>
