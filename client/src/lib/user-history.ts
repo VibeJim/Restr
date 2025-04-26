@@ -107,6 +107,22 @@ export const unsaveListing = (listingId: string): void => {
 };
 
 /**
+ * Toggle a listing's saved status
+ * @returns The new saved state (true = saved, false = unsaved)
+ */
+export const toggleSavedListing = (listing: NostrListing): boolean => {
+  const isSaved = isListingSaved(listing.id);
+  
+  if (isSaved) {
+    unsaveListing(listing.id);
+    return false;
+  } else {
+    saveListing(listing);
+    return true;
+  }
+};
+
+/**
  * Check if a listing is saved by the user
  */
 export const isListingSaved = (listingId: string): boolean => {

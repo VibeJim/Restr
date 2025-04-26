@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import CalendarAvailability from './calendar-availability';
 import ListingComments from './listing-comments';
-import { saveViewedListing } from '@/lib/user-history';
+import ShareNostrModal from './share-nostr-modal';
+import { saveViewedListing, toggleSavedListing, isListingSaved } from '@/lib/user-history';
 
 interface ListingDetailModalProps {
   isOpen: boolean;
@@ -26,12 +27,17 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
   const [checkIn, setCheckIn] = useState<string>('');
   const [checkOut, setCheckOut] = useState<string>('');
   const [guests, setGuests] = useState(2);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     const loadHostData = async () => {
       if (listing && isOpen) {
         // Save this listing to viewed history
         saveViewedListing(listing);
+        
+        // Check if listing is saved
+        setIsSaved(isListingSaved(listing.id));
         
         setIsLoadingHost(true);
         try {
@@ -172,20 +178,50 @@ Please let me know if this property is available during these dates.
         <DialogTitle className="sr-only">{listing.content.title}</DialogTitle>
         {/* Modal Header */}
         <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-          <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-neutral-100 transition" onClick={onClose}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="p-2 rounded-full hover:bg-neutral-100 transition" 
+            onClick={onClose}
+          >
             <i className="ri-close-line text-lg"></i>
           </Button>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" className="flex items-center text-sm font-medium hover:underline">
+            <Button 
+              variant="ghost" 
+              className="flex items-center text-sm font-medium hover:underline"
+              onClick={() => setShowShareModal(true)}
+            >
               <i className="ri-share-line mr-1"></i>
               Share
             </Button>
-            <Button variant="ghost" className="flex items-center text-sm font-medium hover:underline">
-              <i className="ri-heart-3-line mr-1"></i>
-              Save
+            <Button 
+              variant="ghost" 
+              className="flex items-center text-sm font-medium hover:underline"
+              onClick={() => {
+                if (listing) {
+                  const newSavedState = toggleSavedListing(listing);
+                  setIsSaved(newSavedState);
+                  
+                  toast({
+                    title: newSavedState ? "Saved to favorites" : "Removed from favorites",
+                    variant: "default"
+                  });
+                }
+              }}
+            >
+              <i className={`${isSaved ? 'ri-heart-3-fill text-red-500' : 'ri-heart-3-line'} mr-1`}></i>
+              {isSaved ? 'Saved' : 'Save'}
             </Button>
           </div>
         </div>
+        
+        {/* Share Modal */}
+        <ShareNostrModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          listing={listing}
+        />
 
         {/* Modal Body */}
         <div className="flex-grow overflow-y-auto p-6">
