@@ -88,15 +88,16 @@ export default function SupportPage() {
                   <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="item-1">
                       <AccordionTrigger className="text-base font-medium py-4">
-                        How do I create a NOSTR identity for restr?
+                        How do I create a NOSTR identity for Restr?
                       </AccordionTrigger>
                       <AccordionContent className="text-neutral-600 pb-6">
                         <p className="mb-4">Creating a NOSTR identity is simple:</p>
                         <ol className="list-decimal pl-5 space-y-2 mb-4">
-                          <li>Install a NOSTR extension like Alby, nos2x, or Amber</li>
+                          <li>Install a NOSTR extension like nos2x, flamingo, Alby, or Amber (mobile)</li>
                           <li>Generate a new keypair within the extension</li>
                           <li>Click the "Connect" button on our site and grant permission</li>
                         </ol>
+                        <p>or skip all that and well create an identity for you when you publish your listing</p>
                         <p>Your NOSTR identity will be used for secure communication, payments, and verification on restr.</p>
                       </AccordionContent>
                     </AccordionItem>
@@ -159,7 +160,7 @@ export default function SupportPage() {
                         <ul className="list-disc pl-5 space-y-2 mb-4">
                           <li><strong>Desktop:</strong> Chrome, Firefox, Safari, Edge (latest 2 versions)</li>
                           <li><strong>Mobile:</strong> iOS Safari, Android Chrome</li>
-                          <li><strong>NOSTR Extensions:</strong> Alby, nos2x, or other NIP-07 compliant extensions</li>
+                          <li><strong>NOSTR Extensions:</strong> Alby, nos2x, flamingo, or other NIP-07 compliant extensions</li>
                           <li><strong>Mobile NOSTR:</strong> Amber app with NIP-46 remote signing</li>
                         </ul>
                         <p>For the best experience, use a browser that supports WebCrypto for secure NOSTR operations.</p>

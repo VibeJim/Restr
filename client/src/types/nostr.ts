@@ -44,8 +44,9 @@ export interface NostrListingContent {
   bedrooms: number;
   bathrooms: number;
   maxGuests: number;
-  amenities: string[];
-  rentalType?: 'short_term' | 'long_term' | 'sublet';  // Add rental type option
+  amenities?: string[];
+  type?: string[]; 
+  category?: string[];
   [key: string]: any;
 }
 
@@ -78,6 +79,16 @@ export interface NostrReviewContent {
   listingId: string;
   rating: number;
   content: string;
+}
+
+export interface NostrReview {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  content: NostrReviewContent;
+  tags: string[][];
+  sig: string;
+  profile?: NostrProfile;
 }
 
 export interface NostrComment {

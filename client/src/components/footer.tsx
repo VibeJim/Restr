@@ -43,7 +43,7 @@ export default function Footer() {
                   href="/community"
                   className="text-sm text-neutral-600 hover:underline"
                 >
-                  restr community
+                  Restr community
                 </Link>
               </li>
               <li>
@@ -82,7 +82,7 @@ export default function Footer() {
                   href="/about"
                   className="text-sm text-neutral-600 hover:underline"
                 >
-                  How restr works
+                  How Restr works
                 </Link>
               </li>
               <li>
@@ -110,7 +110,7 @@ export default function Footer() {
         </div>
         <div className="border-t border-neutral-200 pt-6 mt-6 flex flex-col md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-neutral-600 mb-4 md:mb-0">
-            © 2025 restr, Inc. ·{" "}
+            © 2025 Restr, Inc. ·{" "}
             <Link href="/privacy" className="hover:underline">
               Privacy
             </Link>{" "}

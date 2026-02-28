@@ -153,7 +153,7 @@ export default function CalendarAvailability({
     }
   };
   
-  // Render calendar day with appropriate status colors
+  // Renders a calendar day cell with status color and fills the available space
   const renderDay = (props: any) => {
     const day = props.date;
     const status = getStatusForDate(day);
@@ -169,7 +169,9 @@ export default function CalendarAvailability({
     }
     
     return (
-      <div className={`w-full h-full flex items-center justify-center rounded-full ${className}`}>
+      <div
+        className={`w-full h-full aspect-square flex items-center justify-center rounded-full text-lg font-medium ${className}`}
+      >
         {day.getDate()}
       </div>
     );
@@ -183,7 +185,7 @@ export default function CalendarAvailability({
           <Button 
             variant="outline" 
             onClick={() => setIsManagingDates(!isManagingDates)}
-            className="text-sm"
+            className="text-sm bg-white"
           >
             {isManagingDates ? 'Done' : 'Manage Dates'}
           </Button>
@@ -276,7 +278,7 @@ export default function CalendarAvailability({
         </div>
       ) : null}
       
-      <div className="calendar-container bg-white p-4 rounded-lg">
+      <div className="calendar-container bg-white p-4 rounded-lg max-w-fit mx-auto">
         {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
@@ -287,7 +289,7 @@ export default function CalendarAvailability({
               mode="single"
               selected={date}
               onSelect={setDate}
-              className="rounded-md border"
+              className="rounded-md border w-full mx-auto max-w-fit"
               components={{
                 Day: (props) => (
                   <div {...props}>
@@ -303,11 +305,7 @@ export default function CalendarAvailability({
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                <span className="text-sm">Blocked</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                <span className="text-sm">Booked</span>
+                <span className="text-sm">Not Available</span>
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-white border border-neutral-300 mr-2"></div>

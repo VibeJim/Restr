@@ -6,13 +6,20 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 export default function AboutSection() {
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-      <h2 className="text-3xl font-bold mb-8 text-center">How restr Works</h2>
+      <h2 className="text-3xl font-bold mb-8 text-center">How Restr Works</h2>
+      
+      <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg mb-12">
+        <h3 className="text-xl font-bold text-blue-700 mb-3">Your Property, Your Rules</h3>
+        <p className="text-neutral-700 mb-4">
+          It's simple - your property, your rules. List your stay and find guests completely for free. You set the terms with your guest prior to their stay. Set up a daily payment? Get paid in advance? Use a trusted escrow? 50% now, 50% later? Restr takes nothing! This is a free and open source listing platform.
+        </p>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         <div>
           <h3 className="text-2xl font-semibold mb-4">NOSTR Protocol</h3>
           <p className="mb-4 text-neutral-700">
-            restr is built on the NOSTR protocol (Notes and Other Stuff Transmitted by Relays), 
+            Restr is built on the NOSTR protocol (Notes and Other Stuff Transmitted by Relays), 
             a decentralized protocol that enables censorship-resistant and permissionless 
             communication. Your identity and listings are secured by cryptographic keys, not by 
             centralized databases.
@@ -132,9 +139,9 @@ export default function AboutSection() {
         <h3 className="text-2xl font-semibold mb-4">Frequently Asked Questions</h3>
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="item-1">
-            <AccordionTrigger>How is restr different from traditional rental platforms?</AccordionTrigger>
+            <AccordionTrigger>How is Restr different from traditional rental platforms?</AccordionTrigger>
             <AccordionContent>
-              restr operates on the decentralized NOSTR protocol, meaning your data and identity are not 
+              Restr operates on the decentralized NOSTR protocol, meaning your data and identity are not 
               controlled by a corporation. We don't take large commissions, and all communications are 
               encrypted and private. Payments are made using Bitcoin or Lightning Network, reducing fees
               and enabling global access without currency conversion concerns.
@@ -152,12 +159,12 @@ export default function AboutSection() {
           </AccordionItem>
           
           <AccordionItem value="item-3">
-            <AccordionTrigger>Do I need a NOSTR identity to use restr?</AccordionTrigger>
+            <AccordionTrigger>Do I need a NOSTR identity to use Restr?</AccordionTrigger>
             <AccordionContent>
               Yes, you'll need a NOSTR identity to interact with hosts and make bookings. You can 
               create one directly through our platform or use an existing NOSTR extension like nos2x, 
               Alby, or Flamingo. Your NOSTR identity can be used across the entire NOSTR ecosystem,
-              not just on restr.
+              not just on Restr.
             </AccordionContent>
           </AccordionItem>
           

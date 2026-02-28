@@ -1,16 +1,18 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NostrListing, NostrUser } from '@/types/nostr';
-import { useState, useEffect } from 'react';
-import { getUser, sendEncryptedDirectMessage } from '@/lib/nostr';
+import { useState, useEffect, useRef } from 'react';
+import { getUser, sendEncryptedDirectMessage, getComments } from '@/lib/nostr';
 import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE, AMENITIES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import CalendarAvailability from './calendar-availability';
-import ListingComments from './listing-comments';
+import ListingReviews from './listing-reviews';
 import ShareNostrModal from './share-nostr-modal';
 import { saveViewedListing, toggleSavedListing, isListingSaved } from '@/lib/user-history';
+import { RestrLogoIcon } from './restr-logo';
+import ImageViewer from './image-viewer';
 
 interface ListingDetailModalProps {
   isOpen: boolean;
@@ -29,6 +31,11 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
   const [guests, setGuests] = useState(2);
   const [isSaved, setIsSaved] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [reviewCount, setReviewCount] = useState(0);
+  const commentsRef = useRef<HTMLDivElement>(null);
+  const [imageError, setImageError] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
     const loadHostData = async () => {
@@ -42,17 +49,33 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
         setIsLoadingHost(true);
         try {
           const hostData = await getUser(listing.pubkey);
+          console.log('hostData', hostData);
           setHost(hostData);
         } catch (error) {
           console.error('Error loading host data', error);
         } finally {
           setIsLoadingHost(false);
         }
+
+        // Load comment count
+        try {
+          const comments = await getComments(listing.id);
+          setReviewCount(comments.length);
+        } catch (error) {
+          console.error('Error loading comment count', error);
+        }
       }
     };
 
     loadHostData();
   }, [listing, isOpen]);
+
+  // Function to scroll to comments section
+  const scrollToComments = () => {
+    if (commentsRef.current) {
+      commentsRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -170,6 +193,17 @@ Please let me know if this property is available during these dates.
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Format location display (same as card)
+  const formatLocation = (location: string) => {
+    const parts = location.split(',').map(part => part.trim());
+    if (parts.length > 1) {
+      const city = parts.pop();
+      const suburb = parts.join(', ');
+      return `${suburb}, ${city}`;
+    }
+    return location;
+  };
+
   const displayedAmenities = listing.content.amenities?.slice(0, 6) || [];
 
   return (
@@ -226,30 +260,70 @@ Please let me know if this property is available during these dates.
                 <i className="ri-star-fill text-xs mr-1"></i>
                 <span className="text-sm font-medium">New</span>
               </span>
-              <span className="text-sm text-neutral-500 underline mr-3">0 reviews</span>
-              <span className="text-sm text-neutral-500">{listing.content.location}</span>
+              <span 
+                className="text-sm text-neutral-500 underline mr-3 cursor-pointer" 
+                onClick={scrollToComments}
+              >
+                {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+              </span>
+              <span className="text-sm text-neutral-500">{formatLocation(listing.content.location)}</span>
             </div>
           </div>
 
-          {/* Photos Grid - Fixed height and spacing */}
-          <div className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-2 mb-6 rounded-xl overflow-hidden h-[350px]">
-            <div className="md:col-span-2 md:row-span-2 h-full">
-              <img 
-                src={listing.content.images[0] || ''} 
-                alt={listing.content.title} 
-                className="h-full w-full object-cover"
-              />
-            </div>
-            {listing.content.images.slice(1, 5).map((image, index) => (
-              <div key={index} className="h-full">
-                <img 
-                  src={image} 
-                  alt={`${listing.content.title} image ${index + 2}`} 
+          {/* Photos Grid - Updated Layout */}
+          <div className="mb-6">
+            {/* Main Image */}
+            <div
+              className="w-full h-[350px] mb-2 rounded-xl overflow-hidden flex items-center justify-center bg-neutral-100 cursor-pointer"
+              onClick={() => {
+                setShowImageViewer(true);
+              }}
+            >
+              {!imageError ? (
+                <img
+                  src={listing.content.images[selectedImageIndex] || ''}
+                  alt={listing.content.title}
                   className="h-full w-full object-cover"
+                  onError={() => setImageError(true)} // You might want to handle image error for selectedImageIndex
                 />
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full h-full">
+                  <RestrLogoIcon size={64} className="mb-2" />
+                  <span className="text-xs text-neutral-500">Image Error</span>
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnails */}
+            {listing.content.images.length > 1 && (
+              <div className="flex space-x-2 overflow-x-auto">
+                {listing.content.images.map((image, index) => (
+                  <div
+                    key={index}
+                    className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${selectedImageIndex === index ? 'border-primary' : 'border-transparent'}`}
+                    onClick={() => {
+                      setSelectedImageIndex(index);
+                      setShowImageViewer(true);
+                    }}
+                  >
+                    <img
+                      src={image}
+                      alt={`${listing.content.title} thumbnail ${index + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Image Viewer */}
+          <ImageViewer
+            isOpen={showImageViewer}
+            onClose={() => setShowImageViewer(false)}
+            images={listing.content.images}
+            initialIndex={selectedImageIndex}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {/* Left Column - Description */}
@@ -258,9 +332,7 @@ Please let me know if this property is available during these dates.
               <div className="flex items-start justify-between pb-6 border-b border-neutral-200">
                 <div>
                   <h3 className="text-xl font-bold">
-                    {`${listing.content.bedrooms > 1 ? 'Entire' : 'Private'} ${
-                      listing.content.bedrooms > 2 ? 'house' : 'apartment'
-                    } hosted by ${host?.profile?.name || 'Host'}`}
+                    {listing.content.type?.join(', ')} by {host?.profile?.display_name || 'Host'}
                   </h3>
                   <p className="text-neutral-500">
                     {listing.content.maxGuests} guests · {listing.content.bedrooms} bedroom
@@ -291,13 +363,13 @@ Please let me know if this property is available during these dates.
                     <p className="text-neutral-500">You'll have the apartment to yourself.</p>
                   </div>
                 </div>
-                <div className="flex items-start mb-4">
+                {/* <div className="flex items-start mb-4">
                   <i className="ri-medal-line text-2xl text-neutral-700 mt-1 mr-4"></i>
                   <div>
-                    <h4 className="font-bold">Experienced host</h4>
-                    <p className="text-neutral-500">Listings on the NOSTR network.</p>
+                    <h4 className="font-bold">Connect host</h4>
+                    <p className="text-neutral-500">MListings on the NOSTR network.</p>
                   </div>
-                </div>
+                </div> */}
                 <div className="flex items-start">
                   <i className="ri-calendar-check-line text-2xl text-neutral-700 mt-1 mr-4"></i>
                   <div>
@@ -359,9 +431,12 @@ Please let me know if this property is available during these dates.
                 />
               </div>
               
-              {/* Listing Comments */}
-              <div className="py-6 border-b border-neutral-200">
-                <ListingComments listing={listing} />
+              {/* Listing Reviews */}
+              <div ref={commentsRef} className="py-6 border-b border-neutral-200">
+                <ListingReviews
+                  listing={listing}
+                  onReviewsLoaded={setReviewCount}
+                />
               </div>
 
               {/* NOSTR Host Info */}
@@ -380,7 +455,7 @@ Please let me know if this property is available during these dates.
                     </div>
                   )}
                   <div>
-                    <h4 className="font-bold">{host?.profile?.name || 'Host'}</h4>
+                    <h4 className="font-bold">{host?.profile?.display_name || 'Host'}</h4>
                     <p className="text-neutral-500 text-sm">Host on NOSTR network</p>
                     <div className="flex items-center mt-1">
                       <div className="flex">
@@ -393,9 +468,29 @@ Please let me know if this property is available during these dates.
                         <span className="text-sm">Identity verified</span>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm text-neutral-600 overflow-hidden">
-                      NOSTR: {host?.npub || 'Loading...'} 
-                      <i className="ri-information-line text-xs cursor-pointer ml-1" title="NOSTR public key"></i>
+                    <p className="mt-4 text-sm text-neutral-600 overflow-hidden text-ellipsis whitespace-nowrap max-w-[90%] flex items-center">
+                      NOSTR: {host?.npub ? (
+                        <>
+                          <span className="inline-block max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap align-bottom" title={host.npub}>
+                            {host.npub.substring(0, 10)}...
+                          </span>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(host.npub);
+                              toast({
+                                title: "Copied!",
+                                description: "NOSTR public key copied to clipboard",
+                                variant: "default"
+                              });
+                            }}
+                            className="ml-1 text-primary hover:text-primary/80"
+                            title="Copy full NOSTR key"
+                          >
+                            <i className="ri-file-copy-line text-xs"></i>
+                          </button>
+                        </>
+                      ) : 'Loading...'} 
+                      {/* <i className="ri-information-line text-xs cursor-pointer ml-1" title="NOSTR public key"></i> */}
                     </p>
                   </div>
                 </div>
@@ -404,7 +499,7 @@ Please let me know if this property is available during these dates.
 
             {/* Right Column - Booking */}
             <div className="md:col-span-1">
-              <div className="sticky top-6 border border-neutral-200 rounded-xl p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
+              <div className="sticky top-6 border border-neutral-200 rounded-xl p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)] bg-white">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <span className="text-xl font-bold">
@@ -414,7 +509,12 @@ Please let me know if this property is available during these dates.
                   </div>
                   <div className="flex items-center">
                     <i className="ri-star-fill text-xs mr-1"></i>
-                    <span className="text-sm">New · <span className="underline">0 reviews</span></span>
+                    <span className="text-sm">New · <span 
+                      className="underline cursor-pointer" 
+                      onClick={scrollToComments}
+                    >
+                      {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                    </span></span>
                   </div>
                 </div>
 
@@ -427,7 +527,7 @@ Please let me know if this property is available during these dates.
                         type="date" 
                         value={checkIn} 
                         onChange={(e) => setCheckIn(e.target.value)}
-                        className="w-full focus:outline-none text-sm pt-1"
+                        className="w-full focus:outline-none text-sm pt-1 bg-transparent"
                         min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
@@ -437,7 +537,7 @@ Please let me know if this property is available during these dates.
                         type="date" 
                         value={checkOut} 
                         onChange={(e) => setCheckOut(e.target.value)}
-                        className="w-full focus:outline-none text-sm pt-1"
+                        className="w-full focus:outline-none text-sm pt-1 bg-transparent"
                         min={checkIn}
                       />
                     </div>
@@ -499,7 +599,7 @@ Please let me know if this property is available during these dates.
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 mt-2">
-                    Secure, decentralized payments via the NOSTR network
+                    Secure, decentralized payments via the lightning network on Nostr. We recommend using OxChat to get in touch with your host and send payments.
                   </p>
                 </div>
               </div>

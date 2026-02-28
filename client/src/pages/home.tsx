@@ -11,11 +11,12 @@ import { getListings } from '@/lib/nostr';
 import { filterUserCreatedListings, filterUserViewedListings, filterUserSavedListings } from '@/lib/user-history';
 import { NostrListing } from '@/types/nostr';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
   const [listings, setListings] = useState<NostrListing[]>([]);
   const [filteredListings, setFilteredListings] = useState<NostrListing[]>([]);
+  const [displayListings, setDisplayListings] = useState<NostrListing[]>([]);
   const [isLoadingListings, setIsLoadingListings] = useState(true);
   const [selectedListing, setSelectedListing] = useState<NostrListing | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -25,6 +26,8 @@ export default function Home() {
   const [activeLocation, setActiveLocation] = useState('');
   const [visibleListings, setVisibleListings] = useState(8);
   const [activeTab, setActiveTab] = useState('all');
+  const [showCategories, setShowCategories] = useState(false);
+  const [filtersKey, setFiltersKey] = useState(0);
 
   // Function to fetch listings that can be called multiple times
   const fetchListings = async () => {
@@ -38,6 +41,7 @@ export default function Home() {
         console.log("No listings found from NOSTR network");
       } else {
         console.log(`Found ${nostrListings.length} listings from NOSTR network`);
+        console.log(nostrListings);
         setListings(nostrListings);
         setFilteredListings(nostrListings);
       }
@@ -66,7 +70,7 @@ export default function Home() {
     }
     
     // Handle tab parameter
-    if (tabParam && ['all', 'viewed', 'saved', 'created'].includes(tabParam)) {
+    if (tabParam && ['all', 'saved', 'created'].includes(tabParam)) {
       console.log(`Tab parameter detected: ${tabParam}`);
       setActiveTab(tabParam);
     }
@@ -79,11 +83,86 @@ export default function Home() {
     // Filter by category
     if (activeCategory !== 'All homes') {
       const categoryKey = activeCategory.toLowerCase();
+      console.log(`Filtering by category: ${activeCategory} (${categoryKey})`);
+      
+      // Find alternative forms of the same category (different case formats)
+      // This handles case where stored categories might be in different format
+      const possibleCategoryForms = [
+        categoryKey,                                // lowercase: beachfront
+        categoryKey.toUpperCase(),                  // uppercase: BEACHFRONT
+        categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1), // Capitalized: Beachfront
+        // Transformed versions in case it got saved with transformations
+        categoryKey.replace(/\s+/g, ''),            // No spaces: Beachfront
+        categoryKey.replace(/\s+/g, '-'),           // Hyphenated: beach-front
+        categoryKey.replace(/\s+/g, '_')            // Underscored: beach_front
+      ];
+      
+      console.log("Will match against any of these category forms:", possibleCategoryForms);
+      
       filtered = filtered.filter(listing => {
-        // Check if listing has a category tag that matches
-        const categoryTags = listing.tags.filter(tag => tag[0] === 't');
-        return categoryTags.some(tag => tag[1].toLowerCase().includes(categoryKey));
+        let matchFound = false;
+        
+        // First check content.category array
+        if (listing.content.category && Array.isArray(listing.content.category)) {
+          console.log(`Listing ${listing.id} has categories:`, listing.content.category);
+          const hasCategory = listing.content.category.some(category => {
+            const categoryLower = category.toLowerCase();
+            // Check if any of our possible forms match this category
+            const matchesAnyForm = possibleCategoryForms.some(form => 
+              categoryLower === form || categoryLower.includes(form)
+            );
+            if (matchesAnyForm) console.log(`Category match in content.category: ${category}`);
+            return matchesAnyForm;
+          });
+          if (hasCategory) {
+            matchFound = true;
+            return true;
+          }
+        }
+        
+        // Then check category tags
+        const categoryTags = listing.tags.filter(tag => tag[0] === 'category');
+        if (categoryTags.length > 0) {
+          console.log(`Listing ${listing.id} has category tags:`, categoryTags);
+          const hasCategory = categoryTags.some(tag => {
+            const tagValueLower = tag[1].toLowerCase();
+            // Check if any of our possible forms match this tag
+            const matchesAnyForm = possibleCategoryForms.some(form => 
+              tagValueLower === form || tagValueLower.includes(form)
+            );
+            if (matchesAnyForm) console.log(`Category match in category tags: ${tag[1]}`);
+            return matchesAnyForm;
+          });
+          if (hasCategory) {
+            matchFound = true;
+            return true;
+          }
+        }
+        
+        // Finally check t tags (backward compatibility)
+        const tTags = listing.tags.filter(tag => tag[0] === 't');
+        if (tTags.length > 0) {
+          console.log(`Listing ${listing.id} has t tags:`, tTags);
+          const hasMatch = tTags.some(tag => {
+            const tagValueLower = tag[1].toLowerCase();
+            // Check if any of our possible forms match this tag
+            const matchesAnyForm = possibleCategoryForms.some(form => 
+              tagValueLower === form || tagValueLower.includes(form)
+            );
+            if (matchesAnyForm) console.log(`Category match in t tags: ${tag[1]}`);
+            return matchesAnyForm;
+          });
+          matchFound = hasMatch;
+          return hasMatch;
+        }
+        
+        if (!matchFound) {
+          console.log(`No category match for listing ${listing.id}`);
+        }
+        return matchFound;
       });
+      
+      console.log(`After category filtering: ${filtered.length} listings match`);
     }
 
     // Apply additional filters
@@ -94,16 +173,129 @@ export default function Home() {
         
         if (filters.includes('wifi')) {
           filtered = filtered.filter(listing => {
-            return listing.content.amenities?.some(amenity => 
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
               amenity.toLowerCase() === 'wifi' || amenity.toLowerCase().includes('wifi')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'wifi' || tag[1].toLowerCase().includes('wifi'))
             );
           });
         }
         
         if (filters.includes('selfCheckin')) {
           filtered = filtered.filter(listing => {
-            return listing.content.amenities?.some(amenity => 
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
               amenity.toLowerCase() === 'self check-in' || amenity.toLowerCase().includes('check-in')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'self check-in' || tag[1].toLowerCase().includes('check-in'))
+            );
+          });
+        }
+        
+        if (filters.includes('ac')) {
+          filtered = filtered.filter(listing => {
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'air conditioning' || 
+              amenity.toLowerCase().includes('ac') || 
+              amenity.toLowerCase().includes('a/c')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'air conditioning' || 
+               tag[1].toLowerCase().includes('ac') || 
+               tag[1].toLowerCase().includes('a/c'))
+            );
+          });
+        }
+        
+        if (filters.includes('kitchen')) {
+          filtered = filtered.filter(listing => {
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'kitchen' || amenity.toLowerCase().includes('kitchen')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'kitchen' || tag[1].toLowerCase().includes('kitchen'))
+            );
+          });
+        }
+        
+        if (filters.includes('smoking')) {
+          filtered = filtered.filter(listing => {
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'smoking allowed' || amenity.toLowerCase().includes('smoking')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'smoking allowed' || tag[1].toLowerCase().includes('smoking'))
+            );
+          });
+        }
+        
+        if (filters.includes('pets')) {
+          filtered = filtered.filter(listing => {
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase() === 'pets allowed' || 
+              amenity.toLowerCase().includes('pet') || 
+              amenity.toLowerCase().includes('dog') || 
+              amenity.toLowerCase().includes('cat')
+            )) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase() === 'pets allowed' || 
+               tag[1].toLowerCase().includes('pet') || 
+               tag[1].toLowerCase().includes('dog') || 
+               tag[1].toLowerCase().includes('cat'))
+            );
+          });
+        }
+        
+        if (filters.includes('cancellation')) {
+          filtered = filtered.filter(listing => {
+            // Check amenities array
+            if (listing.content.amenities?.some(amenity => 
+              amenity.toLowerCase().includes('free cancellation') || 
+              amenity.toLowerCase().includes('cancellation')
+            )) {
+              return true;
+            }
+            // Check description
+            if (listing.content.description && 
+               listing.content.description.toLowerCase().includes('free cancellation')) {
+              return true;
+            }
+            // Check tags
+            return listing.tags.some(tag => 
+              tag[0] === 'amenity' && 
+              (tag[1].toLowerCase().includes('free cancellation') || 
+               tag[1].toLowerCase().includes('cancellation'))
             );
           });
         }
@@ -121,9 +313,48 @@ export default function Home() {
       // Apply property type filter
       if (activeFilters.propertyType) {
         filtered = filtered.filter(listing => {
-          // Match property type with the listing description or title since we don't have a direct property type field
+          // First try to match against the type array if available
+          if (listing.content.type && Array.isArray(listing.content.type)) {
+            return listing.content.type.some(type =>
+              type.toLowerCase() === activeFilters.propertyType.toLowerCase()
+            );
+          }
+          
+          // Next check for type in tags
+          const typeTags = listing.tags.filter(tag => tag[0] === 'type');
+          if (typeTags.length > 0) {
+            return typeTags.some(tag => 
+              tag[1].toLowerCase() === activeFilters.propertyType.toLowerCase()
+            );
+          }
+          
+          // Fall back to matching against description or title
           const content = (listing.content.description || '') + ' ' + (listing.content.title || '');
           return content.toLowerCase().includes(activeFilters.propertyType.toLowerCase());
+        });
+      }
+      
+      // Apply stay type filter
+      if (activeFilters.stayType) {
+        filtered = filtered.filter(listing => {
+          // First try to match against the type array if available
+          if (listing.content.type && Array.isArray(listing.content.type)) {
+            return listing.content.type.some(type =>
+              type.toLowerCase() === activeFilters.stayType.toLowerCase()
+            );
+          }
+          
+          // Next check for type in tags
+          const typeTags = listing.tags.filter(tag => tag[0] === 'type');
+          if (typeTags.length > 0) {
+            return typeTags.some(tag => 
+              tag[1].toLowerCase() === activeFilters.stayType.toLowerCase()
+            );
+          }
+          
+          // Fall back to matching against description or title
+          const content = (listing.content.description || '') + ' ' + (listing.content.title || '');
+          return content.toLowerCase().includes(activeFilters.stayType.toLowerCase());
         });
       }
     }
@@ -139,6 +370,24 @@ export default function Home() {
     setFilteredListings(filtered);
   }, [listings, activeCategory, activeFilters, activeLocation]);
   
+  // Update displayed listings when the active tab or filtered listings change
+  useEffect(() => {
+    if (isLoadingListings) return;
+    
+    switch(activeTab) {
+      case 'saved':
+        setDisplayListings(filterUserSavedListings(listings));
+        break;
+      case 'created':
+        setDisplayListings(filterUserCreatedListings(listings));
+        break;
+      case 'all':
+      default:
+        setDisplayListings(filteredListings);
+        break;
+    }
+  }, [activeTab, filteredListings, listings, isLoadingListings]);
+  
   const handleLocationChange = (location: string) => {
     setActiveLocation(location);
   };
@@ -149,6 +398,22 @@ export default function Home() {
 
   const handleFilterChange = (filters: Record<string, any>) => {
     setActiveFilters(filters);
+  };
+
+  // Function to clear all filters
+  const clearAllFilters = () => {
+    // Reset parent component state
+    setActiveCategory('All homes');
+    setActiveFilters({
+      activeFilters: [],
+      priceRange: [0, 1000000],
+      propertyType: null,
+      stayType: null
+    });
+    setActiveLocation('');
+    
+    // Force a re-render of the Filters component by passing a key
+    setFiltersKey(prev => prev + 1);
   };
 
   const handleListingClick = (listing: NostrListing) => {
@@ -172,210 +437,132 @@ export default function Home() {
     setVisibleListings(prevValue => prevValue + 8);
   };
 
+  // Function to toggle category visibility
+  const toggleCategoriesVisibility = () => {
+    setShowCategories(prevShow => !prevShow);
+  };
+
+  // Render tab title based on activeTab
+  const getTabTitle = () => {
+    switch(activeTab) {
+      case 'saved': return 'Saved Listings';
+      case 'created': return 'Your Listings';
+      case 'all': 
+      default: return 'All Listings';
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header onLocationChange={handleLocationChange} />
-      
-      <main className="flex-grow py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col justify-between items-start mb-8 gap-4">
-            <div className="w-full">
-              <CategoryFilter onCategoryChange={handleCategoryChange} />
-            </div>
+
+      {/* Full-width filter/category bar */}
+      <div className="w-full border-b mb-0">
+        <div className="mx-auto px-0 py-0">
+          {/* Conditionally render CategoryFilter */}
+          {showCategories && (
+            <CategoryFilter 
+              onCategoryChange={handleCategoryChange} 
+              activeCategory={activeCategory}
+            />
+          )}
+          <Filters 
+            key={filtersKey}
+            onFilterChange={handleFilterChange} 
+            showCategories={showCategories} 
+            onToggleCategories={toggleCategoriesVisibility}
+            onResetFilters={clearAllFilters}
+          />
+        </div>
+      </div>
+
+      <main className="flex-grow py-0 mx-auto">
+      <NostrConnectionInfo onConnectClick={openNostrModal} />
+
+        <div className="container mobile-full-width">
+          <div className="flex flex-col justify-between items-start mb-4 gap-0 mx-auto">
             <div className="flex flex-col w-full gap-4">
-              <Filters onFilterChange={handleFilterChange} />
-              <NostrConnectionInfo onConnectClick={openNostrModal} />
-            </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex flex-col sm:flex-row items-center justify-between mb-4">
-                <TabsList>
-                  <TabsTrigger value="all">All Listings</TabsTrigger>
-                  <TabsTrigger value="viewed">Recently Viewed</TabsTrigger>
-                  <TabsTrigger value="saved">Saved</TabsTrigger>
-                  <TabsTrigger value="created">Your Listings</TabsTrigger>
-                </TabsList>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={fetchListings} 
-                  disabled={isLoadingListings} 
-                  className="flex items-center mt-4 sm:mt-0"
-                  size="sm"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {isLoadingListings ? "Refreshing..." : "Refresh"}
-                </Button>
-              </div>
+              {!isLoadingListings && (
+                <div className="flex items-center justify-between w-full mt-4 px-3">
+                  <h2 className="text-xl font-semibold">{getTabTitle()}</h2>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={fetchListings} 
+                    disabled={isLoadingListings} 
+                    className="flex items-center bg-white"
+                    size="sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {isLoadingListings ? "Refreshing..." : "Refresh"}
+                  </Button>
+                </div>
+              )}
               
-              {/* All Listings Tab */}
-              <TabsContent value="all">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {isLoadingListings ? (
-                    // Show skeletons while loading
-                    Array(8).fill(0).map((_, index) => (
-                      <ListingCardSkeleton key={index} />
-                    ))
-                  ) : filteredListings.length > 0 ? (
-                    // Show filtered listings
-                    filteredListings.slice(0, visibleListings).map((listing) => (
-                      <ListingCard 
-                        key={listing.id} 
-                        listing={listing} 
-                        onClick={handleListingClick} 
-                      />
-                    ))
-                  ) : (
-                    // No listings found
-                    <div className="col-span-full text-center py-12">
-                      <h3 className="text-xl font-semibold mb-2">No listings found</h3>
-                      <p className="text-neutral-500 mb-6">
-                        We couldn't find any listings matching your criteria. Try adjusting your filters.
-                      </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-3">
+                {isLoadingListings ? (
+                  // Show centered spinner while loading
+                  <div className="col-span-full flex justify-center items-center py-40">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  </div>
+                ) : displayListings.length > 0 ? (
+                  // Show filtered listings
+                  displayListings.slice(0, visibleListings).map((listing) => (
+                    <ListingCard 
+                      key={listing.id} 
+                      listing={listing} 
+                      onClick={handleListingClick} 
+                    />
+                  ))
+                ) : (
+                  // No listings found
+                  <div className="col-span-full text-center py-12">
+                    <h3 className="text-xl font-semibold mb-2">
+                      {activeTab === 'saved' ? 'No saved listings' : 
+                       activeTab === 'created' ? 'No listings created' : 
+                       'No listings found'}
+                    </h3>
+                    <p className="text-neutral-500 mb-6">
+                      {activeTab === 'saved' ? 'Click the heart icon on any listing to save it for later.' : 
+                       activeTab === 'created' ? 'Properties you create will appear here for easy access.' : 
+                       'We couldn\'t find any listings matching your criteria. Try adjusting your filters.'}
+                    </p>
+                    {activeTab === 'created' ? (
+                      <Button asChild>
+                        <a href="/listing">Create a listing</a>
+                      </Button>
+                    ) : activeTab === 'saved' ? (
                       <Button 
                         variant="outline"
                         onClick={() => {
-                          setActiveCategory('All homes');
-                          setActiveFilters({});
-                          setActiveLocation('');
+                          window.location.href = '/?tab=all';
                         }}
+                      >
+                        Browse properties
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        onClick={clearAllFilters}
+                        className='bg-white'
                       >
                         Clear all filters
                       </Button>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              {/* Recently Viewed Tab */}
-              <TabsContent value="viewed">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {isLoadingListings ? (
-                    // Show skeletons while loading
-                    Array(4).fill(0).map((_, index) => (
-                      <ListingCardSkeleton key={index} />
-                    ))
-                  ) : (() => {
-                    const viewedListings = filterUserViewedListings(listings);
-                    return viewedListings.length > 0 ? (
-                      // Show viewed listings
-                      viewedListings.map((listing) => (
-                        <ListingCard 
-                          key={listing.id} 
-                          listing={listing} 
-                          onClick={handleListingClick} 
-                        />
-                      ))
-                    ) : (
-                      // No viewed listings
-                      <div className="col-span-full text-center py-12">
-                        <h3 className="text-xl font-semibold mb-2">No recent views</h3>
-                        <p className="text-neutral-500 mb-6">
-                          Properties you view will appear here so you can easily find them again.
-                        </p>
-                        <Button 
-                          variant="outline"
-                          onClick={() => {
-                            const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
-                            if (tabAll) tabAll.click();
-                          }}
-                        >
-                          Browse properties
-                        </Button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </TabsContent>
-              
-              {/* Saved Listings Tab */}
-              <TabsContent value="saved">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {isLoadingListings ? (
-                    // Show skeletons while loading
-                    Array(4).fill(0).map((_, index) => (
-                      <ListingCardSkeleton key={index} />
-                    ))
-                  ) : (() => {
-                    const savedListings = filterUserSavedListings(listings);
-                    return savedListings.length > 0 ? (
-                      // Show saved listings
-                      savedListings.map((listing) => (
-                        <ListingCard 
-                          key={listing.id} 
-                          listing={listing} 
-                          onClick={handleListingClick} 
-                        />
-                      ))
-                    ) : (
-                      // No saved listings
-                      <div className="col-span-full text-center py-12">
-                        <h3 className="text-xl font-semibold mb-2">No saved listings</h3>
-                        <p className="text-neutral-500 mb-6">
-                          Click the heart icon on any listing to save it for later.
-                        </p>
-                        <Button 
-                          variant="outline"
-                          onClick={() => {
-                            const tabAll = document.querySelector('[data-value="all"]') as HTMLElement;
-                            if (tabAll) tabAll.click();
-                          }}
-                        >
-                          Browse properties
-                        </Button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </TabsContent>
-              
-              {/* Your Listings Tab */}
-              <TabsContent value="created">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {isLoadingListings ? (
-                    // Show skeletons while loading
-                    Array(4).fill(0).map((_, index) => (
-                      <ListingCardSkeleton key={index} />
-                    ))
-                  ) : (() => {
-                    const createdListings = filterUserCreatedListings(listings);
-                    return createdListings.length > 0 ? (
-                      // Show created listings
-                      createdListings.map((listing) => (
-                        <ListingCard 
-                          key={listing.id} 
-                          listing={listing} 
-                          onClick={handleListingClick} 
-                        />
-                      ))
-                    ) : (
-                      // No created listings
-                      <div className="col-span-full text-center py-12">
-                        <h3 className="text-xl font-semibold mb-2">No listings created</h3>
-                        <p className="text-neutral-500 mb-6">
-                          Properties you create will appear here for easy access.
-                        </p>
-                        <Button asChild>
-                          <a href="/listing">Create a listing</a>
-                        </Button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </TabsContent>
-            </Tabs>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Show More Button */}
-          {filteredListings.length > visibleListings && (
+          {displayListings.length > visibleListings && (
             <div className="mt-10 text-center">
               <Button 
                 variant="outline"
-                className="inline-flex items-center justify-center px-6 py-3 border border-neutral-300 rounded-lg text-base font-medium hover:bg-neutral-50 transition"
+                className="inline-flex items-center justify-center px-6 py-3 border border-orange-400 rounded-lg text-base font-medium bg-gradient-to-r from-amber-400 to-orange-400 text-white font-semibold shadow-sm hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 transition"
                 onClick={loadMoreListings}
               >
                 Show more listings

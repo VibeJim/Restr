@@ -14,9 +14,10 @@ import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 
 interface ListingCommentsProps {
   listing: NostrListing;
+  onCommentsLoaded?: (count: number) => void;
 }
 
-export default function ListingComments({ listing }: ListingCommentsProps) {
+export default function ListingComments({ listing, onCommentsLoaded }: ListingCommentsProps) {
   const { isConnected, user } = useNostr();
   const [comments, setComments] = useState<NostrComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +41,11 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
       console.log(`Received ${fetchedComments.length} comments`);
       setComments(fetchedComments);
       
+      // Call the onCommentsLoaded callback if provided
+      if (onCommentsLoaded) {
+        onCommentsLoaded(fetchedComments.length);
+      }
+      
       // If we posted a comment but it wasn't found in the fetch,
       // try to add it optimistically from local storage
       if (fetchedComments.length === 0) {
@@ -61,6 +67,11 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
           };
           
           setComments([optimisticComment]);
+          
+          // Update comment count with the optimistic comment
+          if (onCommentsLoaded) {
+            onCommentsLoaded(1);
+          }
         }
       }
     } catch (error) {
@@ -123,7 +134,13 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
           };
           
           // Add the optimistic comment to the list
-          setComments(prevComments => [optimisticComment, ...prevComments]);
+          const updatedComments = [optimisticComment, ...comments];
+          setComments(updatedComments);
+          
+          // Update comment count
+          if (onCommentsLoaded) {
+            onCommentsLoaded(updatedComments.length);
+          }
         }
         
         toast({
@@ -138,6 +155,11 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
           const fetchedComments = await getComments(listing.id);
           if (fetchedComments.length > 0) {
             setComments(fetchedComments);
+            
+            // Update comment count
+            if (onCommentsLoaded) {
+              onCommentsLoaded(fetchedComments.length);
+            }
           }
         } catch (err) {
           console.log('Error refreshing comments, keeping optimistic UI:', err);
@@ -239,7 +261,7 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
 
   return (
     <div className="my-8">
-      <h3 className="text-xl font-bold mb-6">Comments</h3>
+      <h3 className="text-xl font-bold mb-6">Reviews</h3>
       
       {/* Comment Form */}
       <div className="mb-6">
@@ -252,14 +274,14 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
         />
         <div className="flex justify-between items-center">
           <p className="text-sm text-neutral-500">
-            {isConnected ? 'Comments are posted to the NOSTR network' : 'Connect with NOSTR to comment'}
+            {isConnected ? 'Reviews are posted to the NOSTR network' : 'Connect with NOSTR to review'}
           </p>
           <Button 
             onClick={handleSubmitComment}
             disabled={isSubmitting || !isConnected || !commentText.trim()}
             className="bg-primary hover:bg-primary-600 text-white"
           >
-            {isSubmitting ? 'Posting...' : 'Post Comment'}
+            {isSubmitting ? 'Posting...' : 'Post Review'}
           </Button>
         </div>
       </div>
@@ -282,7 +304,7 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
           ))
         ) : comments.length === 0 ? (
           <div className="text-center py-6 text-neutral-500">
-            <p>No comments yet. Be the first to leave a comment!</p>
+            <p>Be the first to leave a review!</p>
           </div>
         ) : (
           comments.map((comment) => (
@@ -291,14 +313,14 @@ export default function ListingComments({ listing }: ListingCommentsProps) {
                 <Avatar className="h-10 w-10 mr-3">
                   <AvatarImage src={comment.profile?.picture || DEFAULT_PROFILE_IMAGE} alt="User" />
                   <AvatarFallback>
-                    {(comment.profile?.name || 'User').substring(0, 2).toUpperCase()}
+                    {(comment.profile?.display_name || 'User').substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold">
-                        {comment.profile?.name || 'Anonymous User'}
+                        {comment.profile?.display_name || 'Anonymous User'}
                       </h4>
                       <p className="text-sm text-neutral-500">{formatDate(comment.created_at)}</p>
                     </div>

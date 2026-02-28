@@ -6,7 +6,7 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { publishListing } from '@/lib/nostr';
 import { NostrListingContent } from '@/types/nostr';
-import { AMENITIES } from '@/lib/constants';
+import { AMENITIES, TYPE, CATEGORIES } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ export default function CreateListing() {
     title: '',
     description: '',
     location: '',
+    suburb: '',
     price: 0,
     currency: 'SATS',
     images: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'],
@@ -37,7 +38,8 @@ export default function CreateListing() {
     bedrooms: 1,
     bathrooms: 1,
     maxGuests: 2,
-    rentalType: 'short_term', // Default to short-term rental
+    categories: [],
+    type: [],
     amenities: []
   });
 
@@ -71,6 +73,36 @@ export default function CreateListing() {
         ...formData,
         amenities: [...currentAmenities, amenity]
       });
+    }
+  };
+
+  const handleCategoryToggle = (category: string) => {
+    const currentCategories = formData.categories || [];
+    console.log(`Toggle category: ${category}`);
+    
+    // Make sure we store the exact string from CATEGORIES constant
+    // This ensures exact matching between what's displayed and what's stored
+    const categoryToAdd = CATEGORIES.find(c => c.name === category)?.name || category;
+    
+    if (currentCategories.includes(categoryToAdd)) {
+      setFormData({ 
+        ...formData, 
+        categories: currentCategories.filter((c: string) => c !== categoryToAdd) 
+      });
+    } else {
+      setFormData({ 
+        ...formData, 
+        categories: [...currentCategories, categoryToAdd] 
+      });
+    }
+  };
+
+  const handleTypeToggle = (type: string) => {
+    const currentTypes = formData.type || [];
+    if (currentTypes.includes(type)) {
+      setFormData({ ...formData, type: currentTypes.filter((t: string) => t !== type) });
+    } else {
+      setFormData({ ...formData, type: [...currentTypes, type] });
     }
   };
 
@@ -138,10 +170,19 @@ export default function CreateListing() {
         return;
       }
 
+      // Get the city label from the select element
+      const citySelect = document.getElementById('location') as HTMLSelectElement;
+      const cityLabel = citySelect.options[citySelect.selectedIndex].text;
+
+      // Combine suburb and location if suburb exists
+      const fullLocation = formData.suburb 
+        ? `${formData.suburb}, ${cityLabel}`
+        : cityLabel;
+
       const listingContent: NostrListingContent = {
         title: formData.title!,
         description: formData.description!,
-        location: formData.location!,
+        location: fullLocation,
         price: formData.price!,
         currency: formData.currency || 'USD',
         images: cleanImages,
@@ -149,9 +190,14 @@ export default function CreateListing() {
         bedrooms: formData.bedrooms || 1,
         bathrooms: formData.bathrooms || 1,
         maxGuests: formData.maxGuests || 1,
-        rentalType: formData.rentalType || 'short_term',
-        amenities: formData.amenities || []
+        amenities: formData.amenities || [],
+        type: formData.type || [],
+        category: formData.categories || []
       };
+
+      // Debug output
+      console.log("Submitting listing with categories:", formData.categories);
+      console.log("Full listing content:", listingContent);
 
       // Use the appropriate method based on the user's choice
       const useNewKey = nostrOption === 'generate' || !isConnected;
@@ -174,9 +220,9 @@ export default function CreateListing() {
           setListingCreated(true);
           
           // After showing the key info, automatically redirect to home page after a delay
-          setTimeout(() => {
-            navigate('/?refresh=' + Date.now());
-          }, 10000); // 10 seconds delay to allow user to save keys
+          // setTimeout(() => {
+          //   navigate('/?refresh=' + Date.now());
+          // }, 10000); // 10 seconds delay to allow user to save keys
         } else {
           // Otherwise, redirect to the home page with a refresh parameter to trigger a data refresh
           navigate('/?refresh=' + Date.now());
@@ -241,7 +287,7 @@ export default function CreateListing() {
                   <div>
                     <h3 className="font-medium">Connect with NOSTR Extension</h3>
                     <p className="text-sm text-neutral-500 mt-1">
-                      Use your existing NOSTR identity through a browser extension like Alby or nos2x.
+                      Use your existing NOSTR identity through a browser extension like flamingo, nos2x, or Alby.
                     </p>
                   </div>
                 </div>
@@ -258,9 +304,9 @@ export default function CreateListing() {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium">Generate a New Key</h3>
+                    <h3 className="font-medium">Generate a New Nostr Identity</h3>
                     <p className="text-sm text-neutral-500 mt-1">
-                      Create a new NOSTR key just for this listing. You'll receive a private key to manage your listing.
+                      Create a new NOSTR identity just for this listing. You'll receive a private key to manage your listing.
                     </p>
                   </div>
                 </div>
@@ -338,18 +384,57 @@ export default function CreateListing() {
                       required
                     />
                   </div>
+
+                  <div>
+                    <Label htmlFor="suburb">Suburb/Neighborhood (Optional)</Label>
+                    <Input 
+                      id="suburb"
+                      name="suburb"
+                      value={formData.suburb || ''}
+                      onChange={handleChange}
+                      placeholder="e.g. Manhattan, Downtown, West End"
+                      className="mt-1"
+                    />
+                  </div>
                   
                   <div>
-                    <Label htmlFor="location">Location</Label>
-                    <Input 
+                    <Label htmlFor="location">City</Label>
+                    <select 
                       id="location"
                       name="location"
                       value={formData.location || ''}
                       onChange={handleChange}
-                      placeholder="e.g. New York, NY"
-                      className="mt-1"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-2 pr-8 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
                       required
-                    />
+                    >
+                      <option value="" disabled>Select a location...</option>
+                      <optgroup label="Big City Life">
+                        <option value="new-york">New York</option>
+                        <option value="paris">Paris</option>
+                        <option value="london">London</option>
+                        <option value="tokyo">Tokyo</option>
+                        <option value="sydney">Sydney</option>
+                        <option value="berlin">Berlin</option>
+                        <option value="rome">Rome</option>
+                        <option value="dubai">Dubai</option>
+                        <option value="amsterdam">Amsterdam</option>
+                        <option value="bangkok">Bangkok</option>
+                        <option value="singapore">Singapore</option>
+                        <option value="madrid">Madrid</option>
+                        <option value="barcelona">Barcelona</option>
+                        <option value="hong-kong">Hong Kong</option>
+                        <option value="san-francisco">San Francisco</option>
+                      </optgroup>
+                      <optgroup label="Sat Cities">
+                        <option value="san-salvador">San Salvador</option>
+                        <option value="lugano">Lugano</option>
+                        <option value="miami">Miami</option>
+                        <option value="el-zonte">El Zonte</option>
+                        <option value="madeira">Madeira</option>
+                        <option value="prospera">Próspera</option>
+                        <option value="dubai">Dubai</option>
+                      </optgroup>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -360,7 +445,7 @@ export default function CreateListing() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="price">Price per night</Label>
+                    <Label htmlFor="price">Price per night (sats)</Label>
                     <div className="mt-1 relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2">
                         {formData.currency === 'SATS' ? 'ϟ' : '₿'}
@@ -378,7 +463,7 @@ export default function CreateListing() {
                     </div>
                   </div>
                   
-                  <div>
+                  {/* <div>
                     <Label htmlFor="currency">Currency</Label>
                     <select
                       id="currency"
@@ -390,9 +475,9 @@ export default function CreateListing() {
                       <option value="SATS">SATS (Satoshis)</option>
                       <option value="BTC">BTC (Bitcoin)</option>
                     </select>
-                  </div>
+                  </div> */}
                   
-                  <div>
+                  {/* <div>
                     <Label htmlFor="rentalType">Rental Type</Label>
                     <select
                       id="rentalType"
@@ -405,7 +490,7 @@ export default function CreateListing() {
                       <option value="long_term">Long Term (months/years)</option>
                       <option value="sublet">Sublet</option>
                     </select>
-                  </div>
+                  </div> */}
                   
                   <div>
                     <Label htmlFor="bedrooms">Bedrooms</Label>
@@ -463,6 +548,56 @@ export default function CreateListing() {
                       required
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div className="bg-white p-6 rounded-xl border border-neutral-200 space-y-6">
+                <h2 className="text-xl font-semibold">Categories</h2>
+                <p className="text-neutral-500 text-sm">Select the categories your property belongs to</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {CATEGORIES.map((category, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`category-${index}`}
+                        checked={(formData.categories || []).includes(category.name)}
+                        onCheckedChange={() => handleCategoryToggle(category.name)}
+                      />
+                      <label 
+                        htmlFor={`category-${index}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
+                      >
+                        <i className={`${category.icon} mr-2 text-neutral-600`}></i>
+                        {category.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type */}
+              <div className="bg-white p-6 rounded-xl border border-neutral-200 space-y-6">
+                <h2 className="text-xl font-semibold">Type of place</h2>
+                <p className="text-neutral-500 text-sm">Select the type of place you are listing</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {TYPE.map((type, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`type-${index}`}
+                        checked={(formData.type || []).includes(type.name)}
+                        onCheckedChange={() => handleTypeToggle(type.name)}
+                      />
+                      <label 
+                        htmlFor={`type-${index}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
+                      >
+                        <i className={`${type.icon} mr-2 text-neutral-600`}></i>
+                        {type.name}
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -531,8 +666,8 @@ export default function CreateListing() {
                   <div className="text-sm text-neutral-500">
                     <p>Need image hosting? Try these free services:</p>
                     <ul className="list-disc list-inside mt-1">
-                      <li><a href="https://imgur.com/" target="_blank" rel="noopener noreferrer" className="text-primary">Imgur</a></li>
-                      <li><a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="text-primary">ImgBB</a></li>
+                      {/* <li><a href="https://imgur.com/" target="_blank" rel="noopener noreferrer" className="text-primary">Imgur</a></li>
+                      <li><a href="https://imgbb.com/" target="_blank" rel="noopener noreferrer" className="text-primary">ImgBB</a></li> */}
                       <li><a href="https://postimages.org/" target="_blank" rel="noopener noreferrer" className="text-primary">PostImages</a></li>
                     </ul>
                   </div>

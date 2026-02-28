@@ -532,6 +532,18 @@ export const getListings = async (
             tags: event.tags
           };
           
+          // Debug the listing structure, especially categories
+          console.log(`Processing listing: ${listing.id}`);
+          if (listing.content.category) {
+            console.log(`Listing has categories in content:`, listing.content.category);
+          }
+          
+          // Check for category tags
+          const categoryTags = listing.tags.filter(tag => tag[0] === 'category' || tag[0] === 't');
+          if (categoryTags.length > 0) {
+            console.log(`Listing has category tags:`, categoryTags);
+          }
+          
           listings.set(event.id, listing);
           console.log(`Successfully processed listing ${event.id} - ${content.title}`);
         } catch (error) {
@@ -560,15 +572,17 @@ export const getListings = async (
       // Log how many listings we found
       console.log(`Found ${results.length} listings from the past 30 days`);
       
-      // Sort results by creation date (newest first)
-      results.sort((a, b) => b.created_at - a.created_at);
-      
       // If no listings were found, generate some sample listings
       if (results.length === 0) {
         console.log("No listings found, using fallback sample listings");
         const sampleListings = generateSampleListings();
+        
+        // Sort sample listings by creation date (newest first) - Apply sort here too
+        sampleListings.sort((a, b) => b.created_at - a.created_at);
         resolve(sampleListings);
       } else {
+        // Sort real results by creation date (newest first) - Moved sort here
+        results.sort((a, b) => b.created_at - a.created_at);
         resolve(results);
       }
     }, 30000);
@@ -585,7 +599,12 @@ const generateSampleListings = (): NostrListing[] => {
       id: '1',
       pubkey: '1',
       created_at: now,
-      tags: [['t', 'listing'], ['location', 'New York, NY']],
+      tags: [
+        ['t', 'listing'], 
+        ['location', 'New York, NY'],
+        ['category', 'Apartments'],
+        ['type', 'Entire place']
+      ],
       content: {
         title: "Modern Apartment in Downtown",
         description: "A beautiful, newly renovated apartment in the heart of the city with stunning views of the skyline. Located near shops, restaurants, and public transportation.",
@@ -597,14 +616,21 @@ const generateSampleListings = (): NostrListing[] => {
         bedrooms: 1,
         bathrooms: 1,
         maxGuests: 3,
-        amenities: ["Wifi", "Kitchen", "Air conditioning", "TV", "Washer"]
+        amenities: ["Wifi", "Kitchen", "Air conditioning", "TV", "Washer"],
+        category: ["Apartments"],
+        type: ["Entire place"]
       }
     },
     {
       id: '2',
       pubkey: '2',
       created_at: now,
-      tags: [['t', 'listing'], ['location', 'Miami, FL']],
+      tags: [
+        ['t', 'listing'], 
+        ['location', 'Miami, FL'],
+        ['category', 'Beachfront'],
+        ['type', 'Entire place']
+      ],
       content: {
         title: "Luxury Villa with Ocean View",
         description: "Experience the ultimate luxury in this beachfront villa with private access to the ocean. Enjoy the infinity pool, gourmet kitchen, and spacious outdoor entertainment area.",
@@ -616,14 +642,21 @@ const generateSampleListings = (): NostrListing[] => {
         bedrooms: 3,
         bathrooms: 2.5,
         maxGuests: 6,
-        amenities: ["Pool", "Beachfront", "Kitchen", "Free parking", "Wifi", "TV", "Air conditioning"]
+        amenities: ["Pool", "Beachfront", "Kitchen", "Free parking", "Wifi", "TV", "Air conditioning"],
+        category: ["Beachfront"],
+        type: ["Entire place"]
       }
     },
     {
       id: '3',
       pubkey: '3',
       created_at: now,
-      tags: [['t', 'listing'], ['location', 'San Francisco, CA']],
+      tags: [
+        ['t', 'listing'], 
+        ['location', 'San Francisco, CA'],
+        ['category', 'Tiny homes'],
+        ['type', 'Private room']
+      ],
       content: {
         title: "Cozy Studio in Silicon Valley",
         description: "Perfect for tech professionals or travelers, this studio is located in the heart of Silicon Valley with easy access to major tech campuses and public transportation.",
@@ -635,14 +668,21 @@ const generateSampleListings = (): NostrListing[] => {
         bedrooms: 0,
         bathrooms: 1,
         maxGuests: 2,
-        amenities: ["Wifi", "Kitchen", "Self check-in", "Washer", "Dryer"]
+        amenities: ["Wifi", "Kitchen", "Self check-in", "Washer", "Dryer"],
+        category: ["Tiny homes"],
+        type: ["Private room"]
       }
     },
     {
       id: '4',
       pubkey: '4',
       created_at: now,
-      tags: [['t', 'listing'], ['location', 'Austin, TX']],
+      tags: [
+        ['t', 'listing'], 
+        ['location', 'Austin, TX'],
+        ['category', 'Design'],
+        ['type', 'Shared room']
+      ],
       content: {
         title: "Modern Smart Home in Austin",
         description: "Experience the future in this fully automated smart home. Control lighting, temperature, entertainment, and security from your phone. Great location near downtown Austin.",
@@ -654,7 +694,35 @@ const generateSampleListings = (): NostrListing[] => {
         bedrooms: 2,
         bathrooms: 2,
         maxGuests: 4,
-        amenities: ["Wifi", "TV", "Free parking", "Kitchen", "Air conditioning", "Self check-in", "Washer", "Dryer"]
+        amenities: ["Wifi", "TV", "Free parking", "Kitchen", "Air conditioning", "Self check-in", "Washer", "Dryer"],
+        category: ["Design"],
+        type: ["Shared room"]
+      }
+    },
+    {
+      id: '5',
+      pubkey: '5',
+      created_at: now,
+      tags: [
+        ['t', 'listing'], 
+        ['location', 'Boulder, CO'],
+        ['category', 'Mountain'],
+        ['type', 'Long term']
+      ],
+      content: {
+        title: "Mountain Retreat with Hot Tub",
+        description: "Escape to this peaceful mountain retreat with stunning views. Perfect for long-term digital nomads or those looking to enjoy an extended stay in nature.",
+        location: "Boulder, CO",
+        price: 220,
+        currency: "USD",
+        images: ["https://images.unsplash.com/photo-1560185007-5f0bb1866cab?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80"],
+        beds: 3,
+        bedrooms: 2,
+        bathrooms: 2,
+        maxGuests: 5,
+        amenities: ["Wifi", "Hot tub", "Kitchen", "Free parking", "Heating", "Washer", "Dryer", "Mountain view"],
+        category: ["Mountain"],
+        type: ["Long term"]
       }
     }
   ];
@@ -694,12 +762,64 @@ export const publishListing = async (
       ['bathrooms', listingContent.bathrooms.toString()]
     ];
     
+    // Add cancellation policy tag if it's mentioned in the description
+    if (listingContent.description && 
+        listingContent.description.toLowerCase().includes('cancellation')) {
+      tags.push(['policy', 'cancellation']);
+      
+      if (listingContent.description.toLowerCase().includes('free cancellation')) {
+        tags.push(['amenity', 'free cancellation']);
+      }
+    }
+    
     // Add amenities as tags
     if (listingContent.amenities && Array.isArray(listingContent.amenities)) {
       listingContent.amenities.forEach(amenity => {
-        tags.push(['amenity', amenity]);
+        // Normalize amenity names for better searching
+        const amenityName = amenity.trim();
+        tags.push(['amenity', amenityName]);
+        
+        // Add common filter tags for special amenities
+        const lowerAmenity = amenityName.toLowerCase();
+        if (lowerAmenity.includes('air') && lowerAmenity.includes('condition')) {
+          tags.push(['amenity', 'AC']);
+        }
+        if (lowerAmenity.includes('pet') && lowerAmenity.includes('allow')) {
+          tags.push(['amenity', 'pets allowed']);
+        }
+        if (lowerAmenity.includes('smoke') || lowerAmenity.includes('smoking')) {
+          tags.push(['amenity', 'smoking allowed']);
+        }
       });
     }
+
+    // Add types as tags
+    if (listingContent.type && Array.isArray(listingContent.type)) {
+      listingContent.type.forEach(type => {
+        tags.push(['type', type]);
+      });
+    }
+    
+    // Add categories as tags
+    if (listingContent.category && Array.isArray(listingContent.category)) {
+      // Debug the category array
+      console.log("Adding category tags from:", listingContent.category);
+      
+      // Make sure each category is properly trimmed
+      listingContent.category.forEach(category => {
+        const trimmedCategory = category.trim();
+        console.log(`Adding category tag: ${trimmedCategory}`);
+        
+        // Add with both 'category' and 't' tags for better compatibility
+        tags.push(['category', trimmedCategory]);
+        tags.push(['t', trimmedCategory]); // Legacy/backward compatibility format
+      });
+    } else {
+      console.log("No categories to add, category data:", listingContent.category);
+    }
+
+    // Debug all generated tags
+    console.log("All generated tags:", tags);
 
     // If we're using a browser extension
     if (!customKeyPair && hasNostrExtension()) {
@@ -764,6 +884,27 @@ export const publishListing = async (
         content: listingContent,
         tags: event.tags
       };
+      
+      // Ensure any categories in the content are also in tags
+      // This ensures consistency between content and tags
+      if (localListing.content.category && Array.isArray(localListing.content.category)) {
+        console.log("Ensuring categories are properly saved to localStorage:", localListing.content.category);
+        
+        // Make sure categories are in both content and tags
+        localListing.content.category.forEach(category => {
+          // Check if we already have this category in tags
+          const hasCategoryTag = localListing.tags.some(tag => 
+            (tag[0] === 'category' || tag[0] === 't') && tag[1] === category
+          );
+          
+          // If not, add it
+          if (!hasCategoryTag) {
+            localListing.tags.push(['category', category]);
+            localListing.tags.push(['t', category]);
+            console.log(`Added missing category tag for ${category}`);
+          }
+        });
+      }
       
       // Add to storage
       storedListings.push(localListing);
@@ -1364,6 +1505,149 @@ export const getUser = async (
     console.error('Error fetching user:', error);
     return null;
   }
+};
+
+// Post a review for a listing
+export const postReview = async (
+  listingId: string,
+  rating: number,
+  content: string,
+  relays: string[] = RELAYS
+): Promise<{ reviewId: string | null }> => {
+  try {
+    console.log(`Posting review for listing ${listingId}`);
+    
+    // Create the review content
+    const reviewContent: NostrReviewContent = {
+      listingId,
+      rating,
+      content
+    };
+
+    // Create the event tags
+    const tags: string[][] = [
+      ['e', listingId, '', 'root'],
+      ['k', NOSTR_KINDS.REVIEW.toString()],
+      ['rating', rating.toString()]
+    ];
+    
+    console.log('Creating review event with tags:', tags);
+    
+    // Create and sign the event
+    const event = await createSignedEvent(
+      NOSTR_KINDS.REVIEW, 
+      JSON.stringify(reviewContent), 
+      tags
+    );
+
+    if (!event) {
+      console.error("Failed to create signed review event");
+      return { reviewId: null };
+    }
+    
+    console.log('Review event created:', event.id);
+    
+    // Publish the event to relays with a longer timeout
+    const successfulRelays = await publishEvent(event, relays, 20000);
+    
+    if (successfulRelays.length === 0) {
+      console.log("No relays succeeded in publishing, but returning event ID anyway for optimistic UI update");
+    } else {
+      console.log(`Successfully published to ${successfulRelays.length} relays`);
+    }
+    
+    return { 
+      reviewId: event.id
+    };
+  } catch (error) {
+    console.error('Error posting review:', error);
+    return { reviewId: null };
+  }
+};
+
+// Get reviews for a listing
+export const getReviews = async (
+  listingId: string,
+  relays: string[] = RELAYS
+): Promise<NostrReview[]> => {
+  return new Promise((resolve) => {
+    console.log(`Fetching reviews for listing ${listingId}`);
+    
+    const filter: NostrFilter = {
+      kinds: [NOSTR_KINDS.REVIEW],
+      "#e": [listingId],
+      limit: 50
+    };
+    
+    console.log('Using filter:', filter);
+    
+    const reviews: Map<string, NostrReview> = new Map();
+    let reviewsFetched = false;
+    let timeoutId: NodeJS.Timeout;
+    
+    const { unsubscribe } = subscribeToEvents(
+      filter,
+      async (event) => {
+        try {
+          console.log(`Received review event: ${event.id}`);
+          const content = JSON.parse(event.content) as NostrReviewContent;
+          
+          // Create the review object
+          const review: NostrReview = {
+            id: event.id,
+            pubkey: event.pubkey,
+            created_at: event.created_at,
+            content,
+            tags: event.tags,
+            sig: event.sig
+          };
+          
+          // Try to fetch the author profile
+          try {
+            const profile = await getUserProfile(event.pubkey, relays);
+            if (profile) {
+              review.profile = profile;
+            }
+          } catch (error) {
+            console.error('Error fetching review author profile:', error);
+          }
+          
+          reviews.set(event.id, review);
+          console.log(`Successfully processed review ${event.id}`);
+        } catch (error) {
+          console.error('Error processing review event:', error);
+        }
+      },
+      () => {
+        console.log('EOSE received for reviews');
+        reviewsFetched = true;
+        checkDone();
+      },
+      relays
+    );
+    
+    const checkDone = () => {
+      if (reviewsFetched) {
+        clearTimeout(timeoutId);
+        
+        // Sort reviews by creation time (newest first)
+        const sortedReviews = Array.from(reviews.values()).sort(
+          (a, b) => b.created_at - a.created_at
+        );
+        
+        console.log(`Found ${sortedReviews.length} reviews for listing ${listingId}`);
+        unsubscribe();
+        resolve(sortedReviews);
+      }
+    };
+    
+    // Set timeout for the entire operation
+    timeoutId = setTimeout(() => {
+      console.log('Timeout reached while fetching reviews');
+      reviewsFetched = true;
+      checkDone();
+    }, 8000);
+  });
 };
 
 // Initialize window.nostr type

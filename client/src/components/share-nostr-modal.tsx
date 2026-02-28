@@ -22,12 +22,12 @@ export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostr
   // Format the message for the listing
   const getDefaultMessage = React.useCallback(() => {
     if (!listing) {
-      return "Check out this amazing listing on Restr - the decentralized property rental platform!\n\nhttps://nostr-stay.replit.app";
+      return "Check out the listings on Restr - the free platform for all!\n\nhttps://restr.me";
     }
     
     return `Check out this amazing listing on Restr: ${listing.content.title} ${
       listing.content.location ? `in ${listing.content.location}` : ''
-    }\n\nhttps://nostr-stay.replit.app/listing/${listing.id}`;
+    }\n\nhttps://restr.me/`;
   }, [listing]);
   
   // Initialize note text
@@ -75,7 +75,7 @@ export default function ShareNostrModal({ isOpen, onClose, listing }: ShareNostr
       const tags = [
         ["t", "restr"],
         ["t", "rental"],
-        ["r", "https://nostr-stay.replit.app"]
+        ["r", "https://restr.me"]
       ];
       
       // Add the listing reference if available

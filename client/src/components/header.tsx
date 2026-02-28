@@ -13,7 +13,7 @@ export interface HeaderProps {
 }
 
 export default function Header({ onLocationChange }: HeaderProps) {
-  const { user, isConnected } = useNostr();
+  const { user, isConnected, disconnect } = useNostr();
   const [, setLocation] = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNostrModal, setShowNostrModal] = useState(false);
@@ -21,6 +21,7 @@ export default function Header({ onLocationChange }: HeaderProps) {
   const [activeTab, setActiveTab] = useState('all');
 
   const toggleUserMenu = () => {
+    // console.log(user);
     setShowUserMenu(!showUserMenu);
   };
 
@@ -69,7 +70,7 @@ export default function Header({ onLocationChange }: HeaderProps) {
     }
     
     // Update URL with the search param
-    if (location) {
+    if (location && location !== 'all') {
       setLocation(`/?location=${location}`);
     } else {
       setLocation('/');
@@ -77,12 +78,12 @@ export default function Header({ onLocationChange }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 bg-white border-b border-neutral-200 z-50 shadow-[0_1px_2px_rgba(0,0,0,0.08)]">
+    <header className="sticky top-0 bg-white border-b border-amber-100 z-50 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center">
+            <Link href="/?tab=all" className="flex items-center" onClick={() => window.location.href = '/?tab=all'}>
               <RestrLogoFull />
             </Link>
           </div>
@@ -90,32 +91,44 @@ export default function Header({ onLocationChange }: HeaderProps) {
           {/* Search Bar */}
           <div className="hidden md:flex items-center justify-center flex-1 max-w-md mx-4">
             <div className="relative w-full">
-              <div className="flex items-center justify-between w-full px-4 py-2 text-sm text-left border border-neutral-300 rounded-full shadow-sm bg-white hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between w-full px-3 py-1.5 text-sm text-left border border-neutral-200 rounded-full bg-white hover:border-amber-300 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-amber-100 shadow-sm hover:shadow transition-all duration-200">
                 <select 
-                  className="w-full bg-transparent border-none focus:outline-none appearance-none cursor-pointer"
+                  className="w-full bg-transparent border-none focus:outline-none appearance-none cursor-pointer text-neutral-700 placeholder:text-neutral-400"
                   aria-label="Select a city"
                   value={selectedLocation}
                   onChange={handleLocationChange}
                 >
                   <option value="" disabled>Select a location...</option>
-                  <option value="new-york">New York</option>
-                  <option value="paris">Paris</option>
-                  <option value="london">London</option>
-                  <option value="tokyo">Tokyo</option>
-                  <option value="sydney">Sydney</option>
-                  <option value="berlin">Berlin</option>
-                  <option value="rome">Rome</option>
-                  <option value="dubai">Dubai</option>
-                  <option value="amsterdam">Amsterdam</option>
-                  <option value="bangkok">Bangkok</option>
-                  <option value="singapore">Singapore</option>
-                  <option value="madrid">Madrid</option>
-                  <option value="barcelona">Barcelona</option>
-                  <option value="hong-kong">Hong Kong</option>
-                  <option value="san-francisco">San Francisco</option>
+                  <option value="all">All</option>
+                  <optgroup label="Big City Life">
+                    <option value="new-york">New York</option>
+                    <option value="paris">Paris</option>
+                    <option value="london">London</option>
+                    <option value="tokyo">Tokyo</option>
+                    <option value="sydney">Sydney</option>
+                    <option value="berlin">Berlin</option>
+                    <option value="rome">Rome</option>
+                    <option value="dubai">Dubai</option>
+                    <option value="amsterdam">Amsterdam</option>
+                    <option value="bangkok">Bangkok</option>
+                    <option value="singapore">Singapore</option>
+                    <option value="madrid">Madrid</option>
+                    <option value="barcelona">Barcelona</option>
+                    <option value="hong-kong">Hong Kong</option>
+                    <option value="san-francisco">San Francisco</option>
+                  </optgroup>
+                  <optgroup label="Sat Cities">
+                    <option value="san-salvador">San Salvador</option>
+                    <option value="lugano">Lugano</option>
+                    <option value="miami">Miami</option>
+                    <option value="el-zonte">El Zonte</option>
+                    <option value="madeira">Madeira</option>
+                    <option value="prospera">Próspera</option>
+                    <option value="dubai">Dubai</option>
+                  </optgroup>
                 </select>
-                <div className="bg-primary text-white p-2 rounded-full flex-shrink-0 ml-2">
-                  <i className="ri-search-line text-sm"></i>
+                <div className="bg-orange-400 text-white p-1.5 rounded-full flex-shrink-0 ml-2 shadow-sm hover:bg-orange-600 transition-colors w-7 h-7 flex items-center justify-center">
+                  <i className="ri-search-line text-[15px]"></i>
                 </div>
               </div>
             </div>
@@ -126,7 +139,7 @@ export default function Header({ onLocationChange }: HeaderProps) {
             <Link href="/create-listing">
               <Button 
                 variant="ghost" 
-                className="hidden md:block text-sm font-medium hover:bg-neutral-100 px-4 py-2 rounded-full transition"
+                className="hidden md:block text-sm font-medium hover:bg-amber-50 px-4 py-2 rounded-full transition text-orange-400"
               >
                 List your property
               </Button>
@@ -136,14 +149,14 @@ export default function Header({ onLocationChange }: HeaderProps) {
             <div className="relative">
               <button 
                 onClick={toggleUserMenu}
-                className="flex items-center space-x-2 border border-neutral-300 p-2 rounded-full shadow-sm hover:shadow-md transition-shadow"
+                className="flex items-center space-x-2 border border-neutral-300 p-2 rounded-full shadow-sm hover:shadow-md hover:border-amber-300 transition"
               >
                 {isConnected && user ? (
                   <>
                     <i className="ri-menu-line text-neutral-600"></i>
                     <div className="hidden sm:flex items-center space-x-2 pr-1">
                       <span className="text-sm font-medium truncate max-w-[100px]">
-                        {user.profile?.name || 'NOSTR User'}
+                        {user.profile?.display_name || 'NOSTR User'}
                       </span>
                     </div>
                     <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -172,7 +185,7 @@ export default function Header({ onLocationChange }: HeaderProps) {
                     {!isConnected && (
                       <div className="px-4 py-3 border-b border-neutral-200">
                         <div className="font-semibold mb-1">Connect with NOSTR</div>
-                        <p className="text-sm text-neutral-500 mb-3">Use your NOSTR identity to access restr</p>
+                        <p className="text-sm text-neutral-500 mb-3">Use your NOSTR identity to access Restr</p>
                         <Button 
                           className="w-full bg-primary hover:bg-primary-600 text-white font-medium py-2 px-4 rounded-lg transition"
                           onClick={openNostrModal}
@@ -195,44 +208,35 @@ export default function Header({ onLocationChange }: HeaderProps) {
                           </div>
                           <div>
                             <div className="font-medium">
-                              {user.profile?.name || 'NOSTR User'}
+                              {user.profile?.display_name || 'NOSTR User'}
                             </div>
                             <div className="text-xs text-neutral-500 truncate max-w-[200px] font-mono">
                               {user.npub}
                             </div>
                           </div>
                         </div>
-                        
-                        {/* Listings Tabs */}
-                        <div className="mt-3">
-                          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                            <TabsList className="w-full">
-                              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                              <TabsTrigger value="viewed" className="text-xs">Viewed</TabsTrigger>
-                              <TabsTrigger value="saved" className="text-xs">Saved</TabsTrigger>
-                              <TabsTrigger value="created" className="text-xs">Yours</TabsTrigger>
-                            </TabsList>
-                          </Tabs>
-                        </div>
                       </div>
                     )}
 
+                    
+
                     {/* Menu Items */}
-                    <Link href="/trips" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
-                      Trips
-                    </Link>
-                    <Link href="/wishlists" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
-                      Wishlists
-                    </Link>
+                    <a 
+                      href="/?tab=saved" 
+                      onClick={() => window.location.href = '/?tab=saved'} 
+                      className="block px-4 py-3 text-sm hover:bg-neutral-100 transition"
+                    >
+                      Saved Listings
+                    </a>
                     <Link href="/create-listing" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       List your property
                     </Link>
-                    <Link href="/listings" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
-                      Manage listings
-                    </Link>
+                    <a href="/?tab=created" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition" onClick={() => window.location.href = '/?tab=created'}>
+                      Your listings
+                    </a>
                     <div className="border-t border-neutral-200"></div>
                     <Link href="/about" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
-                      About restr
+                      About Restr
                     </Link>
                     <Link href="/community" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       Community
@@ -240,6 +244,22 @@ export default function Header({ onLocationChange }: HeaderProps) {
                     <Link href="/help" className="block px-4 py-3 text-sm hover:bg-neutral-100 transition">
                       Help Center
                     </Link>
+                    {/* Disconnect Button - only show if connected */}
+                    {isConnected && (
+                      <div className="px-4 py-3">
+                        <Button 
+                          variant="ghost"
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg transition flex items-center justify-center"
+                          onClick={() => {
+                            disconnect();
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <i className="ri-logout-box-line mr-2"></i>
+                          Disconnect
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -249,31 +269,47 @@ export default function Header({ onLocationChange }: HeaderProps) {
 
         {/* Mobile Search (Visible on small screens) */}
         <div className="block md:hidden pb-4">
-          <div className="flex items-center w-full px-4 py-2 bg-white rounded-full border border-neutral-300 shadow-sm">
-            <i className="ri-search-line text-neutral-500 mr-3"></i>
-            <select 
-              className="w-full bg-transparent border-none focus:outline-none appearance-none text-sm"
-              aria-label="Select a city"
-              value={selectedLocation}
-              onChange={handleLocationChange}
-            >
-              <option value="" disabled>Select a location...</option>
-              <option value="new-york">New York</option>
-              <option value="paris">Paris</option>
-              <option value="london">London</option>
-              <option value="tokyo">Tokyo</option>
-              <option value="sydney">Sydney</option>
-              <option value="berlin">Berlin</option>
-              <option value="rome">Rome</option>
-              <option value="dubai">Dubai</option>
-              <option value="amsterdam">Amsterdam</option>
-              <option value="bangkok">Bangkok</option>
-              <option value="singapore">Singapore</option>
-              <option value="madrid">Madrid</option>
-              <option value="barcelona">Barcelona</option>
-              <option value="hong-kong">Hong Kong</option>
-              <option value="san-francisco">San Francisco</option>
-            </select>
+          <div className="relative w-full">
+            <div className="flex items-center w-full px-3 py-1.5 bg-white rounded-full border border-neutral-200 hover:border-neutral-300 focus-within:border-neutral-400 focus-within:ring-2 focus-within:ring-neutral-100 shadow-sm hover:shadow transition-all duration-200">
+              <i className="ri-search-line text-[15px] text-neutral-500 mr-3"></i>
+              <select 
+                className="w-full bg-transparent border-none focus:outline-none appearance-none text-sm text-neutral-700 placeholder:text-neutral-400"
+                aria-label="Select a city"
+                value={selectedLocation}
+                onChange={handleLocationChange}
+              >
+                <option value="" disabled>Select a location...</option>
+                <option value="all">All</option>
+                
+                <optgroup label="Big City Life">
+                  <option value="new-york">New York</option>
+                  <option value="paris">Paris</option>
+                  <option value="london">London</option>
+                  <option value="tokyo">Tokyo</option>
+                  <option value="sydney">Sydney</option>
+                  <option value="berlin">Berlin</option>
+                  <option value="rome">Rome</option>
+                  <option value="dubai">Dubai</option>
+                  <option value="amsterdam">Amsterdam</option>
+                  <option value="bangkok">Bangkok</option>
+                  <option value="singapore">Singapore</option>
+                  <option value="madrid">Madrid</option>
+                  <option value="barcelona">Barcelona</option>
+                  <option value="hong-kong">Hong Kong</option>
+                  <option value="san-francisco">San Francisco</option>
+                </optgroup>
+                
+                <optgroup label="Sat Cities">
+                  <option value="san-salvador">San Salvador</option>
+                  <option value="lugano">Lugano</option>
+                  <option value="miami">Miami</option>
+                  <option value="el-zonte">El Zonte</option>
+                  <option value="madeira">Madeira</option>
+                  <option value="prospera">Próspera</option>
+                  <option value="dubai">Dubai</option>
+                </optgroup>
+              </select>
+            </div>
           </div>
         </div>
       </div>

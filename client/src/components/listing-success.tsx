@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -24,6 +24,15 @@ export default function ListingSuccess({ keyPair, listingId }: ListingSuccessPro
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
   const [backupConfirmed, setBackupConfirmed] = useState(false);
+  const [showRedirectButton, setShowRedirectButton] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowRedirectButton(true);
+    }, 10000);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const copyKeyToClipboard = () => {
     if (keyPair?.nsec) {
@@ -54,9 +63,15 @@ export default function ListingSuccess({ keyPair, listingId }: ListingSuccessPro
         <div className="text-center font-medium mb-2">
           Listing ID: <span className="font-mono text-sm bg-neutral-100 p-1 rounded">{listingId.substring(0, 8)}...{listingId.substring(listingId.length - 8)}</span>
         </div>
-        <p className="text-center text-sm text-neutral-500">
-          You will be automatically redirected to the home page in a few seconds, where your new listing will appear.
-        </p>
+        {showRedirectButton && (
+          <div className="flex justify-center mt-4">
+            <Button asChild>
+              <Link href="/">
+                See Your Listings
+              </Link>
+            </Button>
+          </div>
+        )}
       </Card>
 
       {keyPair && (

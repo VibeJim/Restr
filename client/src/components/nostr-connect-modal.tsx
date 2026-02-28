@@ -35,9 +35,10 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
     
     // Generate a NIP-46 connect URL for Amber following the official spec
     const generateConnectUrl = () => {
-      // Create a random secret for this connection request
-      const secret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // Create a random secret for this connection request (keep it shorter)
+      const secret = Math.random().toString(36).substring(2, 10);
       localStorage.setItem('nostr_connect_session', secret);
+      console.log('[QR-DEBUG] Generated session secret:', secret);
       
       // Define the relay used for NIP-46 communication
       const relay = 'wss://relay.damus.io';
@@ -46,29 +47,22 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
       const appName = 'restr';
       const appURL = window.location.origin;
       
-      // Construct the URI according to the NIP-46 spec
-      // nostrconnect://<pubkey>?relay=<relay>&metadata=<metadata>
-      // Since we don't have a pubkey yet (the whole point is to get one), we use a placeholder
-      // Amber doesn't require a specific pubkey parameter
+      // Create a simpler metadata object
       const metadata = JSON.stringify({
         name: appName,
-        url: appURL,
-        description: 'A NOSTR-based property rental platform',
-        icons: [`${appURL}/favicon.ico`]
+        url: appURL
       });
       
       // Encode everything properly
       const encodedRelay = encodeURIComponent(relay);
       const encodedMetadata = encodeURIComponent(metadata);
       
-      // Create the final URL according to NIP-46 spec and Amber's implementation
-      // For maximum compatibility, we'll use the more widely supported format:
+      // Create a simpler URL that's more compatible with Amber
       // nostrconnect://?relay=<relay_url>&metadata=<metadata_json>&secret=<secret>
-      // This works with Amber and other NIP-46 implementations
       const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
       
       // Log the URL for debugging
-      console.log('Generated NIP-46 connect URL:', url);
+      console.log('[QR-DEBUG] Generated simplified NIP-46 connect URL:', url);
       
       setLoginUrl(url);
       setQrValue(url);
@@ -80,22 +74,33 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
     let pollInterval: NodeJS.Timeout;
     
     if (isOpen) {
-      pollInterval = setInterval(() => {
-        checkForNip07Login();
+      pollInterval = setInterval(async () => {
+        // Check for both NIP-07 and NIP-46 login methods
+        console.log('[QR-DEBUG] Polling for login...');
+        const isLoggedIn = await checkForNip07Login();
+        console.log('[QR-DEBUG] Login check result:', isLoggedIn);
+        
+        // If user is now connected, close the modal
+        if (isLoggedIn) {
+          console.log('[QR-DEBUG] User logged in, closing modal');
+          onClose();
+          clearInterval(pollInterval);
+        }
       }, 2000); // Check every 2 seconds
     }
     
     // Cleanup the interval when the component unmounts or modal closes
     return () => {
+      console.log('[QR-DEBUG] Cleanup: clearing poll interval');
       clearInterval(pollInterval);
     };
-  }, [isOpen, isMobile, checkForNip07Login]);
+  }, [isOpen, isMobile, checkForNip07Login, onClose]);
   
   const handleExtensionConnect = async () => {
     if (!hasExtension) {
       toast({
         title: "NOSTR Extension Not Found",
-        description: "Please install a NOSTR extension like nos2x or Alby to continue.",
+        description: "Please install a NOSTR extension like nos2x, flamingo, or Alby to continue. (chrome, brave, edge, etc)",
         variant: "destructive"
       });
       return;
@@ -138,8 +143,30 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
       duration: 5000
     });
     
-    // We'll rely on the QR code display for all users
-    // This allows the web app to stay in the browser
+    // Try to actively connect with NIP-46
+    // Using a timeout to allow time for the Amber app to respond
+    setIsConnecting(true);
+    
+    // Set a timeout to check for connection after QR is scanned
+    const checkConnectionTimer = setTimeout(async () => {
+      // Get the stored session secret
+      const secret = localStorage.getItem('nostr_connect_session');
+      
+      if (secret) {
+        // The user might have already scanned the QR code
+        // We'll display a checking toast to let them know we're looking for their connection
+        toast({
+          title: "Checking Connection",
+          description: "Looking for your Amber connection...",
+          variant: "default"
+        });
+      }
+      
+      setIsConnecting(false);
+    }, 5000);
+    
+    // Clean up the timer 
+    return () => clearTimeout(checkConnectionTimer);
   };
 
   return (
@@ -154,9 +181,9 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
         
         <div className="py-4">
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="extension">Browser Extension</TabsTrigger>
-              <TabsTrigger value="mobile">Amber App</TabsTrigger>
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} mb-4`}>
+              {!isMobile && <TabsTrigger value="extension">Browser Extension</TabsTrigger>}
+              <TabsTrigger value="mobile">App Connect</TabsTrigger>
             </TabsList>
             
             <TabsContent value="extension" className="space-y-4">
@@ -184,21 +211,30 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                   <p className="mt-1">
                     Install a NOSTR extension like{' '}
                     <a 
-                      href="https://getalby.com" 
+                      href="https://www.getflamingo.org" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="underline text-amber-900"
                     >
-                      Alby
+                      flamingo
                     </a>{' '}
                     or{' '}
                     <a 
-                      href="https://github.com/fiatjaf/nos2x" 
+                      href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="underline text-amber-900"
                     >
                       nos2x
+                    </a>{' '}
+                    or{' '}
+                    <a 
+                      href="https://https://chromewebstore.google.com/detail/alby-bitcoin-wallet-for-l/iokeahhehimjnekafflcihljlcjccdbe" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="underline text-amber-900"
+                    >
+                      Alby (Advanced)
                     </a>{' '}
                     to continue.
                   </p>
@@ -209,30 +245,64 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
             <TabsContent value="mobile" className="space-y-4">
               <div className="flex flex-col items-center p-4 border border-neutral-300 rounded-lg">
                 <div className="text-center mb-2">
-                  <h3 className="font-medium text-lg">Connect with Amber</h3>
+                  <h3 className="font-medium text-lg">Connect with App</h3>
                   <p className="text-sm text-neutral-500 mb-2">
-                    Scan this QR code with your Amber app
+                    Scan this QR code with your NOSTR app
                   </p>
-                  <img 
-                    src="https://amber.app/wp-content/uploads/2023/03/amber-horizontal.svg" 
-                    alt="Amber App Logo" 
-                    className="h-6 mx-auto mb-2"
-                  />
                 </div>
                 
                 <div className="bg-white p-3 rounded-lg mb-4 border-2 border-[#FF8900]">
                   <QRCodeSVG value={qrValue} size={isMobile ? 150 : 200} />
                 </div>
                 
+                <div className="flex gap-2 w-full">
+                  <Button
+                    onClick={() => {
+                      // Regenerate the QR code
+                      console.log('[QR-DEBUG] Refreshing QR code...');
+                      const secret = Math.random().toString(36).substring(2, 10);
+                      localStorage.setItem('nostr_connect_session', secret);
+                      
+                      const relay = 'wss://relay.damus.io';
+                      const appName = 'restr';
+                      const appURL = window.location.origin;
+                      
+                      const metadata = JSON.stringify({
+                        name: appName,
+                        url: appURL
+                      });
+                      
+                      const encodedRelay = encodeURIComponent(relay);
+                      const encodedMetadata = encodeURIComponent(metadata);
+                      
+                      const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
+                      
+                      console.log('[QR-DEBUG] Regenerated QR code URL:', url);
+                      setLoginUrl(url);
+                      setQrValue(url);
+                      
+                      toast({
+                        title: "QR Code Refreshed",
+                        description: "New connection code generated. Try scanning again.",
+                        variant: "default"
+                      });
+                    }}
+                    className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-50"
+                    variant="outline"
+                  >
+                    <i className="ri-refresh-line mr-1"></i> Refresh QR
+                  </Button>
+                </div>
+                
                 {isMobile && (
-                  <div className="w-full mb-3">
+                  <div className="w-full mt-2">
                     <Button
                       onClick={() => {
                         // Copy the connection URL to clipboard
                         navigator.clipboard.writeText(loginUrl).then(() => {
                           toast({
                             title: "Connection URL Copied",
-                            description: "Open Amber app and paste this code to connect",
+                            description: "Open your NOSTR app and paste this code to connect",
                             variant: "default",
                             duration: 3000
                           });
@@ -242,11 +312,83 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                     >
                       Copy Connection Code
                     </Button>
-                    <p className="text-xs text-center mt-2 text-neutral-500">
-                      You can copy the code and manually paste it in the Amber app
-                    </p>
                   </div>
                 )}
+                
+                {/* Manual Connect Option */}
+                <div className="border-t border-gray-200 my-3 pt-3">
+                  <p className="text-xs text-center mb-2 text-neutral-500 font-medium">
+                    Connect Manually:
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Enter your npub or hex pubkey" 
+                      className="flex-1 text-xs py-1 px-2 border border-gray-300 rounded"
+                      onChange={(e) => {
+                        // Store the entered pubkey in a variable
+                        localStorage.setItem('temp_amber_pubkey', e.target.value);
+                      }} 
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        setIsConnecting(true);
+                        try {
+                          // Get the entered pubkey
+                          const tempPubkey = localStorage.getItem('temp_amber_pubkey');
+                          if (!tempPubkey) {
+                            toast({
+                              title: "No Pubkey Entered",
+                              description: "Please enter your public key first",
+                              variant: "destructive"
+                            });
+                            setIsConnecting(false);
+                            return;
+                          }
+                          
+                          // Clean the pubkey - handle both npub and hex formats
+                          let cleanPubkey = tempPubkey.trim();
+                          
+                          console.log('[QR-DEBUG] Attempting manual connection with pubkey:', cleanPubkey);
+                          
+                          // Attempt to connect with the pubkey
+                          const success = await connectWithNIP46(cleanPubkey);
+                          
+                          if (success) {
+                            toast({
+                              title: "Connected to NOSTR",
+                              description: "You're now connected with your NOSTR identity",
+                              variant: "default"
+                            });
+                            localStorage.removeItem('temp_amber_pubkey');
+                            onClose();
+                          } else {
+                            toast({
+                              title: "Connection Failed",
+                              description: "Could not connect with the provided key",
+                              variant: "destructive"
+                            });
+                          }
+                        } catch (error) {
+                          console.error('[QR-DEBUG] Manual connection error:', error);
+                          toast({
+                            title: "Connection Error",
+                            description: "An error occurred while connecting",
+                            variant: "destructive"
+                          });
+                        } finally {
+                          setIsConnecting(false);
+                        }
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? 'Connecting...' : 'Connect Manually'}
+                    </Button>
+                  </div>
+                </div>
                 
                 <div className="text-xs text-center text-neutral-500">
                   This QR code uses the NIP-46 protocol for secure remote signing
@@ -254,60 +396,29 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
               </div>
               
               <div className="text-sm bg-amber-50 text-amber-800 p-3 rounded-lg">
-                <p className="font-medium">How to Connect with Amber:</p>
+                <p className="font-medium">How to Connect:</p>
                 
                 {isMobile ? (
                   <ol className="mt-2 ml-4 list-decimal text-xs space-y-1">
-                    <li><strong>Install Amber</strong> from the App Store or Google Play if you don't have it</li>
-                    <li><strong>Open Amber</strong> on your device</li>
-                    <li><strong>Tap "Scan"</strong> in the Amber app or use the copy feature above</li>
+                    <li><strong>Open</strong> your NOSTR app</li>
+                    <li><strong>Tap "Scan"</strong> in the app or use the copy feature above</li>
                     <li><strong>Authorize</strong> the connection when prompted</li>
                   </ol>
                 ) : (
                   <ol className="mt-2 ml-4 list-decimal text-xs space-y-1">
-                    <li><strong>Install Amber</strong> on your mobile device</li>
-                    <li><strong>Open Amber</strong> and tap "Scan" in the app</li>
+                    <li><strong>Open</strong> your NOSTR app</li>
+                    <li><strong>Tap "Scan"</strong> in the app</li>
                     <li><strong>Scan this QR code</strong> with your phone's camera</li>
                     <li><strong>Authorize</strong> the connection when prompted</li>
                   </ol>
                 )}
-                
-                <p className="mt-3">
-                  <a 
-                    href="https://amber.app" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="underline text-amber-900 font-medium"
-                  >
-                    Amber
-                  </a>{' '}
-                  is the recommended wallet for NOSTR. It enables secure sign-in without sharing your private keys.
-                </p>
-                <p className="mt-2">
-                  <a 
-                    href="https://apps.apple.com/us/app/amber-bitcoin-lightning-nostr/id1641569086" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-block mr-3"
-                  >
-                    <img src="https://amber.app/wp-content/uploads/2023/03/download-from-app-store.svg" alt="Download from App Store" className="h-8" />
-                  </a>
-                  <a 
-                    href="https://play.google.com/store/apps/details?id=com.amberapp.amber" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-block"
-                  >
-                    <img src="https://amber.app/wp-content/uploads/2023/03/get-it-on-google-play.svg" alt="Get it on Google Play" className="h-8" />
-                  </a>
-                </p>
               </div>
             </TabsContent>
           </Tabs>
           
-          <div className="text-xs text-neutral-500 text-center mt-6">
+          {/* <div className="text-xs text-neutral-500 text-center mt-6">
             By connecting, you agree to our <a href="#" className="text-primary">Terms of Service</a> and <a href="#" className="text-primary">Privacy Policy</a>
-          </div>
+          </div> */}
         </div>
       </DialogContent>
     </Dialog>
