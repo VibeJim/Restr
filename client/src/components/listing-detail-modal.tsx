@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NostrListing, NostrUser } from '@/types/nostr';
 import { useState, useEffect, useRef } from 'react';
-import { getUser, sendEncryptedDirectMessage, getComments } from '@/lib/nostr';
+import { getUser, sendEncryptedDirectMessage, getReviews } from '@/lib/nostr';
 import { useNostr } from '@/context/nostr-provider';
 import { DEFAULT_PROFILE_IMAGE, AMENITIES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +36,7 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
   const [imageError, setImageError] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showAllAmenities, setShowAllAmenities] = useState(false);
 
   useEffect(() => {
     const loadHostData = async () => {
@@ -57,12 +58,12 @@ export default function ListingDetailModal({ isOpen, onClose, listing }: Listing
           setIsLoadingHost(false);
         }
 
-        // Load comment count
+        // Load review count from the same source as the reviews component
         try {
-          const comments = await getComments(listing.id);
-          setReviewCount(comments.length);
+          const reviews = await getReviews(listing.id);
+          setReviewCount(reviews.length);
         } catch (error) {
-          console.error('Error loading comment count', error);
+          console.error('Error loading review count', error);
         }
       }
     };
@@ -138,7 +139,7 @@ Booking details:
 - Check-out: ${formatDate(checkOut)}
 - Guests: ${guests}
 - Total nights: ${totalNights}
-- Approx total: ${listing.content.currency === 'BTC' ? '₿' : 'ϟ'}${total} ${listing.content.currency === 'BTC' ? 'BTC' : 'sats'}
+- Approx total: ${listing.content.currency === 'USD' ? '$' : '₿'}${total} ${listing.content.currency === 'USD' ? 'USD' : 'BTC'}
 
 Please let me know if this property is available during these dates.
 `.trim();
@@ -204,7 +205,8 @@ Please let me know if this property is available during these dates.
     return location;
   };
 
-  const displayedAmenities = listing.content.amenities?.slice(0, 6) || [];
+  const allAmenities = listing.content.amenities || [];
+  const displayedAmenities = showAllAmenities ? allAmenities : allAmenities.slice(0, 6);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -409,12 +411,15 @@ Please let me know if this property is available during these dates.
                     );
                   })}
                 </div>
-                {listing.content.amenities && listing.content.amenities.length > 6 && (
+                {allAmenities.length > 6 && (
                   <Button 
                     variant="outline"
                     className="mt-4 px-5 py-2 border border-neutral-800 rounded-lg font-semibold hover:bg-neutral-100 transition"
+                    onClick={() => setShowAllAmenities(!showAllAmenities)}
                   >
-                    Show all {listing.content.amenities.length} amenities
+                    {showAllAmenities 
+                      ? 'Show less' 
+                      : `Show all ${allAmenities.length} amenities`}
                   </Button>
                 )}
               </div>
@@ -503,9 +508,9 @@ Please let me know if this property is available during these dates.
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <span className="text-xl font-bold">
-                      {listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{listing.content.price}
+                      {listing.content.currency === 'USD' ? '$' : '₿'}{listing.content.price}
                     </span>
-                    <span className="text-neutral-500"> {listing.content.currency === 'BTC' ? 'BTC' : 'sats'}/night</span>
+                    <span className="text-neutral-500"> {listing.content.currency === 'USD' ? 'USD' : 'BTC'}/night</span>
                   </div>
                   <div className="flex items-center">
                     <i className="ri-star-fill text-xs mr-1"></i>
@@ -575,13 +580,13 @@ Please let me know if this property is available during these dates.
                   <div className="mt-4 space-y-3">
                     <div className="flex justify-between">
                       <span className="underline">
-                        {listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{listing.content.price} x {totalNights} night{totalNights !== 1 ? 's' : ''}
+                        {listing.content.currency === 'USD' ? '$' : '₿'}{listing.content.price} x {totalNights} night{totalNights !== 1 ? 's' : ''}
                       </span>
-                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{subTotal}</span>
+                      <span>{listing.content.currency === 'USD' ? '$' : '₿'}{subTotal}</span>
                     </div>
                     <div className="flex justify-between pt-4 border-t border-neutral-200 font-semibold">
                       <span>Approx total</span>
-                      <span>{listing.content.currency === 'BTC' ? '₿' : 'ϟ'}{total}</span>
+                      <span>{listing.content.currency === 'USD' ? '$' : '₿'}{total}</span>
                     </div>
                   </div>
                 )}

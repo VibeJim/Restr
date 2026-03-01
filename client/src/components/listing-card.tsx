@@ -67,7 +67,7 @@ export default function ListingCard({ listing, onClick }: ListingCardProps) {
 
   const { title, location, price, currency, images } = listing.content;
   const imageUrl = Array.isArray(images) && images.length > 0 ? images[currentImageIndex] : '';
-  const currencySymbol = currency === 'BTC' ? '₿' : 'ϟ';
+  const currencySymbol = currency === 'USD' ? '$' : '₿';
   const hasMultipleImages = Array.isArray(images) && images.length > 1;
 
   // Format location display

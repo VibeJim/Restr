@@ -129,8 +129,8 @@ export default function Filters({
             >
               <span>
                 {priceRange[0] > 0 || priceRange[1] < 1000000 
-                  ? `ϟ${formatNumber(priceRange[0])} - ϟ${formatNumber(priceRange[1])}`
-                  : 'Price (sats)'
+                  ? `₿${formatNumber(priceRange[0])} - ₿${formatNumber(priceRange[1])}`
+                  : 'Price'
                 }
               </span>
               <i className="ri-arrow-down-s-line ml-1"></i>
@@ -142,12 +142,12 @@ export default function Filters({
                 <div className="py-6">
                   <div className="flex justify-between mb-4">
                     <div className="p-4 border rounded-lg">
-                      <span className="block text-xs text-neutral-500">min price (sats)</span>
-                      <div className="text-lg font-medium">ϟ {formatNumber(priceRange[0])}</div>
+                      <span className="block text-xs text-neutral-500">min price</span>
+                      <div className="text-lg font-medium">₿ {formatNumber(priceRange[0])}</div>
                     </div>
                     <div className="p-4 border rounded-lg">
-                      <span className="block text-xs text-neutral-500">max price (sats)</span>
-                      <div className="text-lg font-medium">ϟ {formatNumber(priceRange[1])}</div>
+                      <span className="block text-xs text-neutral-500">max price</span>
+                      <div className="text-lg font-medium">₿ {formatNumber(priceRange[1])}</div>
                     </div>
                   </div>
                   

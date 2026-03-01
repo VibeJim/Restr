@@ -1,6 +1,12 @@
+// Primary relays used for publishing and subscribing.
+// These are well-maintained public relays known to accept all NIP event kinds
+// including parameterized replaceable events (30000+).
 export const RELAYS = [
   'wss://relay.damus.io',
-  'wss://nos.lol'
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
+  'wss://relay.primal.net',
+  'wss://purplepag.es'
 ];
 
 export const DEFAULT_PROFILE_IMAGE = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
@@ -49,15 +55,23 @@ export const AMENITIES = [
   { name: "Breakfast", icon: "ri-restaurant-line" }
 ];
 
-export const TYPE = [
-  { name: "Hotel", icon: "ri-hotel-line" },
-  { name: "Short term", icon: "ri-calendar-line" },
-  { name: "Long term", icon: "ri-calendar-line" },
-  { name: "Sublet", icon: "ri-calendar-line" },
-  { name: "Entire place", icon: "ri-calendar-line" },
-  { name: "Private room", icon: "ri-calendar-line" },
-  { name: "Shared room", icon: "ri-calendar-line" }
+// Describes what kind of space is being rented
+export const PLACE_TYPES = [
+  { name: "Entire place", icon: "ri-home-4-line" },
+  { name: "Private room", icon: "ri-door-closed-line" },
+  { name: "Shared room", icon: "ri-team-line" },
+  { name: "Hotel", icon: "ri-hotel-line" }
 ];
+
+// Describes the intended duration / rental arrangement
+export const STAY_TYPES = [
+  { name: "Short term", icon: "ri-calendar-2-line" },
+  { name: "Long term", icon: "ri-calendar-check-line" },
+  { name: "Sublet", icon: "ri-key-line" }
+];
+
+// Legacy combined array kept for backward compat with existing listings
+export const TYPE = [...PLACE_TYPES, ...STAY_TYPES];
 
 export const CATEGORIES = [
   { name: "Apartments", icon: "ri-building-4-line" },

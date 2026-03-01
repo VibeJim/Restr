@@ -6,13 +6,12 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { publishListing } from '@/lib/nostr';
 import { NostrListingContent } from '@/types/nostr';
-import { AMENITIES, TYPE, CATEGORIES } from '@/lib/constants';
+import { AMENITIES, PLACE_TYPES, STAY_TYPES, CATEGORIES } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ListingSuccess from '@/components/listing-success';
 
 export default function CreateListing() {
@@ -32,7 +31,7 @@ export default function CreateListing() {
     location: '',
     suburb: '',
     price: 0,
-    currency: 'SATS',
+    currency: 'BTC',
     images: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'],
     beds: 1,
     bedrooms: 1,
@@ -149,6 +148,32 @@ export default function CreateListing() {
       toast({
         title: "Missing Fields",
         description: "Please fill out all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Type of place is required
+    const selectedPlaceTypes = (formData.type || []).filter(t =>
+      PLACE_TYPES.some(p => p.name === t)
+    );
+    if (selectedPlaceTypes.length === 0) {
+      toast({
+        title: "Type of Place Required",
+        description: "Please select at least one option under Type of Place",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Type of stay is required
+    const selectedStayTypes = (formData.type || []).filter(t =>
+      STAY_TYPES.some(s => s.name === t)
+    );
+    if (selectedStayTypes.length === 0) {
+      toast({
+        title: "Type of Stay Required",
+        description: "Please select at least one option under Type of Stay",
         variant: "destructive"
       });
       return;
@@ -444,17 +469,45 @@ export default function CreateListing() {
                 <h2 className="text-xl font-semibold">Property Details</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Currency selector */}
                   <div>
-                    <Label htmlFor="price">Price per night (sats)</Label>
+                    <Label>Currency</Label>
+                    <div className="mt-1 flex rounded-md overflow-hidden border border-input">
+                      {[
+                        { value: 'USD', label: 'USD', symbol: '$' },
+                        { value: 'BTC', label: '₿ Bitcoin', symbol: '₿' }
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, currency: opt.value })}
+                          className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                            formData.currency === opt.value
+                              ? 'bg-[#FF8900] text-white'
+                              : 'bg-white text-neutral-600 hover:bg-neutral-50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <Label htmlFor="price">
+                      Price per night ({formData.currency === 'USD' ? 'USD' : 'BTC'})
+                    </Label>
                     <div className="mt-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        {formData.currency === 'SATS' ? 'ϟ' : '₿'}
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-neutral-500">
+                        {formData.currency === 'USD' ? '$' : '₿'}
                       </span>
                       <Input 
                         id="price"
                         name="price"
                         type="number"
-                        min="1"
+                        min="0"
+                        step={formData.currency === 'USD' ? '1' : '0.00000001'}
                         value={formData.price || ''}
                         onChange={handleChange}
                         className="pl-8"
@@ -462,35 +515,6 @@ export default function CreateListing() {
                       />
                     </div>
                   </div>
-                  
-                  {/* <div>
-                    <Label htmlFor="currency">Currency</Label>
-                    <select
-                      id="currency"
-                      name="currency"
-                      value={formData.currency || 'SATS'}
-                      onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                    >
-                      <option value="SATS">SATS (Satoshis)</option>
-                      <option value="BTC">BTC (Bitcoin)</option>
-                    </select>
-                  </div> */}
-                  
-                  {/* <div>
-                    <Label htmlFor="rentalType">Rental Type</Label>
-                    <select
-                      id="rentalType"
-                      name="rentalType"
-                      value={formData.rentalType || 'short_term'}
-                      onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                    >
-                      <option value="short_term">Short Term (days/weeks)</option>
-                      <option value="long_term">Long Term (months/years)</option>
-                      <option value="sublet">Sublet</option>
-                    </select>
-                  </div> */}
                   
                   <div>
                     <Label htmlFor="bedrooms">Bedrooms</Label>
@@ -576,28 +600,81 @@ export default function CreateListing() {
                 </div>
               </div>
 
-              {/* Type */}
-              <div className="bg-white p-6 rounded-xl border border-neutral-200 space-y-6">
-                <h2 className="text-xl font-semibold">Type of place</h2>
-                <p className="text-neutral-500 text-sm">Select the type of place you are listing</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {TYPE.map((type, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`type-${index}`}
-                        checked={(formData.type || []).includes(type.name)}
-                        onCheckedChange={() => handleTypeToggle(type.name)}
-                      />
-                      <label 
-                        htmlFor={`type-${index}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
+              {/* Type of Place — required */}
+              <div className={`bg-white p-6 rounded-xl border space-y-4 ${
+                (formData.type || []).filter(t => PLACE_TYPES.some(p => p.name === t)).length === 0
+                  ? 'border-neutral-200'
+                  : 'border-green-300'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Type of Place <span className="text-red-500">*</span></h2>
+                    <p className="text-neutral-500 text-sm mt-0.5">Select what kind of space guests will have</p>
+                  </div>
+                  {(formData.type || []).filter(t => PLACE_TYPES.some(p => p.name === t)).length > 0 && (
+                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                      <i className="ri-check-line"></i> Selected
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {PLACE_TYPES.map((type, index) => {
+                    const isSelected = (formData.type || []).includes(type.name);
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleTypeToggle(type.name)}
+                        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all text-sm font-medium ${
+                          isSelected
+                            ? 'border-[#FF8900] bg-orange-50 text-[#FF8900]'
+                            : 'border-neutral-200 hover:border-neutral-400 text-neutral-600'
+                        }`}
                       >
-                        <i className={`${type.icon} mr-2 text-neutral-600`}></i>
+                        <i className={`${type.icon} text-2xl`}></i>
                         {type.name}
-                      </label>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Type of Stay — required */}
+              <div className={`bg-white p-6 rounded-xl border space-y-4 ${
+                (formData.type || []).filter(t => STAY_TYPES.some(s => s.name === t)).length === 0
+                  ? 'border-neutral-200'
+                  : 'border-green-300'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Type of Stay <span className="text-red-500">*</span></h2>
+                    <p className="text-neutral-500 text-sm mt-0.5">Select the rental duration or arrangement</p>
+                  </div>
+                  {(formData.type || []).filter(t => STAY_TYPES.some(s => s.name === t)).length > 0 && (
+                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                      <i className="ri-check-line"></i> Selected
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {STAY_TYPES.map((type, index) => {
+                    const isSelected = (formData.type || []).includes(type.name);
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleTypeToggle(type.name)}
+                        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all text-sm font-medium ${
+                          isSelected
+                            ? 'border-[#FF8900] bg-orange-50 text-[#FF8900]'
+                            : 'border-neutral-200 hover:border-neutral-400 text-neutral-600'
+                        }`}
+                      >
+                        <i className={`${type.icon} text-2xl`}></i>
+                        {type.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

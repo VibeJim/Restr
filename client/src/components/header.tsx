@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useNostr } from '@/context/nostr-provider';
-import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 import NostrConnectModal from './nostr-connect-modal';
 import { Button } from './ui/button';
 import { RestrLogoFull } from './restr-logo';
@@ -19,6 +18,33 @@ export default function Header({ onLocationChange }: HeaderProps) {
   const [showNostrModal, setShowNostrModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+
+  // Returns the best available user display name or a clear empty fallback.
+  const getUserDisplayName = () => {
+    const displayName = typeof user?.profile?.display_name === 'string' ? user.profile.display_name.trim() : '';
+    if (displayName) {
+      return displayName;
+    }
+
+    const name = typeof user?.profile?.name === 'string' ? user.profile.name.trim() : '';
+    return name || 'No name';
+  };
+
+  // Returns a usable avatar URL, or undefined when unavailable.
+  const getUserPicture = () => {
+    const picture = typeof user?.profile?.picture === 'string' ? user.profile.picture.trim() : '';
+    return picture || undefined;
+  };
+
+  const userDisplayName = getUserDisplayName();
+  const userPicture = getUserPicture();
+  const showUserPicture = !!userPicture && !avatarLoadFailed;
+
+  // Resets image failure state when the connected user/avatar changes.
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user?.pubkey, userPicture]);
 
   const toggleUserMenu = () => {
     // console.log(user);
@@ -156,16 +182,23 @@ export default function Header({ onLocationChange }: HeaderProps) {
                     <i className="ri-menu-line text-neutral-600"></i>
                     <div className="hidden sm:flex items-center space-x-2 pr-1">
                       <span className="text-sm font-medium truncate max-w-[100px]">
-                        {user.profile?.display_name || 'NOSTR User'}
+                        {userDisplayName}
                       </span>
                     </div>
-                    <div className="h-8 w-8 rounded-full overflow-hidden">
-                      <img 
-                        src={user.profile?.picture || DEFAULT_PROFILE_IMAGE} 
-                        alt="User profile" 
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
+                    {showUserPicture ? (
+                      <div className="h-8 w-8 rounded-full overflow-hidden bg-neutral-200">
+                        <img
+                          src={userPicture}
+                          alt="User profile"
+                          className="h-full w-full object-cover"
+                          onError={() => setAvatarLoadFailed(true)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-neutral-700 text-white rounded-full h-8 w-8 flex items-center justify-center">
+                        <i className="ri-user-3-line"></i>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -199,16 +232,23 @@ export default function Header({ onLocationChange }: HeaderProps) {
                     {isConnected && user && (
                       <div className="px-4 py-3 border-b border-neutral-200">
                         <div className="flex items-center space-x-3 mb-2">
-                          <div className="h-10 w-10 rounded-full bg-neutral-200 overflow-hidden">
-                            <img 
-                              src={user.profile?.picture || DEFAULT_PROFILE_IMAGE} 
-                              alt="User profile" 
-                              className="h-full w-full object-cover" 
-                            />
-                          </div>
+                          {showUserPicture ? (
+                            <div className="h-10 w-10 rounded-full bg-neutral-200 overflow-hidden">
+                              <img
+                                src={userPicture}
+                                alt="User profile"
+                                className="h-full w-full object-cover"
+                                onError={() => setAvatarLoadFailed(true)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-neutral-700 text-white rounded-full h-10 w-10 flex items-center justify-center">
+                              <i className="ri-user-3-line"></i>
+                            </div>
+                          )}
                           <div>
                             <div className="font-medium">
-                              {user.profile?.display_name || 'NOSTR User'}
+                              {userDisplayName}
                             </div>
                             <div className="text-xs text-neutral-500 truncate max-w-[200px] font-mono">
                               {user.npub}

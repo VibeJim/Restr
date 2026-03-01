@@ -476,32 +476,30 @@ export default function Home() {
         </div>
       </div>
 
-      <main className="flex-grow py-0 mx-auto">
+      <main className="flex-grow py-0 w-full">
       <NostrConnectionInfo onConnectClick={openNostrModal} />
 
-        <div className="container mobile-full-width">
-          <div className="flex flex-col justify-between items-start mb-4 gap-0 mx-auto">
+        <div className="w-full max-w-6xl mx-auto px-3 sm:px-4">
+          <div className="flex flex-col justify-between items-start mb-4 gap-0 w-full">
             <div className="flex flex-col w-full gap-4">
-              {!isLoadingListings && (
-                <div className="flex items-center justify-between w-full mt-4 px-3">
-                  <h2 className="text-xl font-semibold">{getTabTitle()}</h2>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={fetchListings} 
-                    disabled={isLoadingListings} 
-                    className="flex items-center bg-white"
-                    size="sm"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    {isLoadingListings ? "Refreshing..." : "Refresh"}
-                  </Button>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-3">
+              {/* Title + refresh row: always rendered with min-height so layout doesn't jump when loading or when there are no listings */}
+              <div className="flex items-center justify-between w-full min-h-[3.25rem] mt-4 px-0 shrink-0">
+                <h2 className="text-xl font-semibold">{getTabTitle()}</h2>
+                <Button
+                  variant="outline"
+                  onClick={fetchListings}
+                  disabled={isLoadingListings}
+                  className="flex items-center bg-white shrink-0"
+                  size="sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {isLoadingListings ? "Refreshing..." : "Refresh"}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-0 w-full">
                 {isLoadingListings ? (
                   // Show centered spinner while loading
                   <div className="col-span-full flex justify-center items-center py-40">

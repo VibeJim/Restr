@@ -1,7 +1,7 @@
 import { useNostr } from '@/context/nostr-provider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { hasNostrExtension } from '@/lib/nostr';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,87 +14,93 @@ interface NostrConnectModalProps {
 }
 
 export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModalProps) {
-  const { connect, connectWithNip07, connectWithNIP46, checkForNip07Login } = useNostr();
+  const { connectWithNip07, connectWithNIP46, checkForNip07Login } = useNostr();
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
   const [loginUrl, setLoginUrl] = useState('');
   const [qrValue, setQrValue] = useState('');
   const [hasExtension, setHasExtension] = useState(false);
   const [activeTab, setActiveTab] = useState('extension');
+  const [manualPubkey, setManualPubkey] = useState('');
+  const onCloseRef = useRef(onClose);
+  const checkLoginRef = useRef(checkForNip07Login);
   const isMobile = useIsMobile();
-  
+
+  // Keeps callback refs current without retriggering setup effects.
   useEffect(() => {
-    // Check if the user has a NOSTR extension
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Keeps login checker ref current without retriggering setup effects.
+  useEffect(() => {
+    checkLoginRef.current = checkForNip07Login;
+  }, [checkForNip07Login]);
+
+  // Generates a NIP-46 connection URL for desktop or mobile app-connect.
+  const buildNostrConnectUrl = () => {
+    const secret = Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('nostr_connect_session', secret);
+    console.log('[QR-DEBUG] Generated session secret:', secret);
+
+    const relay = 'wss://relay.damus.io';
+    const appName = 'restr';
+    const appURL = window.location.origin;
+
+    // Include both metadata and top-level app hints for broader client compatibility.
+    const metadata = JSON.stringify({
+      name: appName,
+      url: appURL
+    });
+
+    const encodedRelay = encodeURIComponent(relay);
+    const encodedMetadata = encodeURIComponent(metadata);
+    const encodedName = encodeURIComponent(appName);
+    const encodedUrl = encodeURIComponent(appURL);
+    const encodedPerms = encodeURIComponent('get_public_key,sign_event:1,sign_event:30017');
+
+    const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}&name=${encodedName}&url=${encodedUrl}&perms=${encodedPerms}`;
+    console.log('[QR-DEBUG] Generated NIP-46 connect URL:', url);
+    return url;
+  };
+
+  // Initializes connect options and QR data when the modal opens.
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     const extensionExists = hasNostrExtension();
     setHasExtension(extensionExists);
-    
-    // If on mobile, default to QR/Amber tab
-    if (isMobile) {
-      setActiveTab('mobile');
+    setActiveTab(isMobile ? 'mobile' : 'extension');
+
+    const url = buildNostrConnectUrl();
+    setLoginUrl(url);
+    setQrValue(url);
+  }, [isOpen, isMobile]);
+
+  // Polls for completed login while the modal is open.
+  useEffect(() => {
+    if (!isOpen) {
+      return;
     }
-    
-    // Generate a NIP-46 connect URL for Amber following the official spec
-    const generateConnectUrl = () => {
-      // Create a random secret for this connection request (keep it shorter)
-      const secret = Math.random().toString(36).substring(2, 10);
-      localStorage.setItem('nostr_connect_session', secret);
-      console.log('[QR-DEBUG] Generated session secret:', secret);
-      
-      // Define the relay used for NIP-46 communication
-      const relay = 'wss://relay.damus.io';
-      
-      // Get the application and target URIs according to NIP-46
-      const appName = 'restr';
-      const appURL = window.location.origin;
-      
-      // Create a simpler metadata object
-      const metadata = JSON.stringify({
-        name: appName,
-        url: appURL
-      });
-      
-      // Encode everything properly
-      const encodedRelay = encodeURIComponent(relay);
-      const encodedMetadata = encodeURIComponent(metadata);
-      
-      // Create a simpler URL that's more compatible with Amber
-      // nostrconnect://?relay=<relay_url>&metadata=<metadata_json>&secret=<secret>
-      const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
-      
-      // Log the URL for debugging
-      console.log('[QR-DEBUG] Generated simplified NIP-46 connect URL:', url);
-      
-      setLoginUrl(url);
-      setQrValue(url);
-    };
-    
-    generateConnectUrl();
-    
-    // Setup a polling mechanism to check if the user has logged in (for QR code login)
-    let pollInterval: NodeJS.Timeout;
-    
-    if (isOpen) {
-      pollInterval = setInterval(async () => {
-        // Check for both NIP-07 and NIP-46 login methods
-        console.log('[QR-DEBUG] Polling for login...');
-        const isLoggedIn = await checkForNip07Login();
-        console.log('[QR-DEBUG] Login check result:', isLoggedIn);
-        
-        // If user is now connected, close the modal
-        if (isLoggedIn) {
-          console.log('[QR-DEBUG] User logged in, closing modal');
-          onClose();
-          clearInterval(pollInterval);
-        }
-      }, 2000); // Check every 2 seconds
-    }
-    
-    // Cleanup the interval when the component unmounts or modal closes
+
+    const pollInterval = setInterval(async () => {
+      console.log('[QR-DEBUG] Polling for login...');
+      const isLoggedIn = await checkLoginRef.current();
+      console.log('[QR-DEBUG] Login check result:', isLoggedIn);
+
+      if (isLoggedIn) {
+        console.log('[QR-DEBUG] User logged in, closing modal');
+        clearInterval(pollInterval);
+        onCloseRef.current();
+      }
+    }, 2000);
+
     return () => {
       console.log('[QR-DEBUG] Cleanup: clearing poll interval');
       clearInterval(pollInterval);
     };
-  }, [isOpen, isMobile, checkForNip07Login, onClose]);
+  }, [isOpen]);
   
   const handleExtensionConnect = async () => {
     if (!hasExtension) {
@@ -180,7 +186,7 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
         </DialogHeader>
         
         <div className="py-4">
-          <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} mb-4`}>
               {!isMobile && <TabsTrigger value="extension">Browser Extension</TabsTrigger>}
               <TabsTrigger value="mobile">App Connect</TabsTrigger>
@@ -258,26 +264,8 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                 <div className="flex gap-2 w-full">
                   <Button
                     onClick={() => {
-                      // Regenerate the QR code
                       console.log('[QR-DEBUG] Refreshing QR code...');
-                      const secret = Math.random().toString(36).substring(2, 10);
-                      localStorage.setItem('nostr_connect_session', secret);
-                      
-                      const relay = 'wss://relay.damus.io';
-                      const appName = 'restr';
-                      const appURL = window.location.origin;
-                      
-                      const metadata = JSON.stringify({
-                        name: appName,
-                        url: appURL
-                      });
-                      
-                      const encodedRelay = encodeURIComponent(relay);
-                      const encodedMetadata = encodeURIComponent(metadata);
-                      
-                      const url = `nostrconnect://?relay=${encodedRelay}&metadata=${encodedMetadata}&secret=${secret}`;
-                      
-                      console.log('[QR-DEBUG] Regenerated QR code URL:', url);
+                      const url = buildNostrConnectUrl();
                       setLoginUrl(url);
                       setQrValue(url);
                       
@@ -295,7 +283,15 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                 </div>
                 
                 {isMobile && (
-                  <div className="w-full mt-2">
+                  <div className="w-full mt-2 space-y-2">
+                    <Button
+                      onClick={() => {
+                        window.location.href = loginUrl;
+                      }}
+                      className="w-full bg-[#FF8900] hover:bg-[#E67A00] text-white"
+                    >
+                      Open NOSTR App
+                    </Button>
                     <Button
                       onClick={() => {
                         // Copy the connection URL to clipboard
@@ -326,18 +322,15 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                       type="text" 
                       placeholder="Enter your npub or hex pubkey" 
                       className="flex-1 text-xs py-1 px-2 border border-gray-300 rounded"
-                      onChange={(e) => {
-                        // Store the entered pubkey in a variable
-                        localStorage.setItem('temp_amber_pubkey', e.target.value);
-                      }} 
+                      value={manualPubkey}
+                      onChange={(e) => setManualPubkey(e.target.value)}
                     />
                     <Button
                       size="sm"
                       onClick={async () => {
                         setIsConnecting(true);
                         try {
-                          // Get the entered pubkey
-                          const tempPubkey = localStorage.getItem('temp_amber_pubkey');
+                          const tempPubkey = manualPubkey.trim();
                           if (!tempPubkey) {
                             toast({
                               title: "No Pubkey Entered",
@@ -347,14 +340,10 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                             setIsConnecting(false);
                             return;
                           }
-                          
-                          // Clean the pubkey - handle both npub and hex formats
-                          let cleanPubkey = tempPubkey.trim();
-                          
-                          console.log('[QR-DEBUG] Attempting manual connection with pubkey:', cleanPubkey);
+                          console.log('[QR-DEBUG] Attempting manual connection with pubkey:', tempPubkey);
                           
                           // Attempt to connect with the pubkey
-                          const success = await connectWithNIP46(cleanPubkey);
+                          const success = await connectWithNIP46(tempPubkey);
                           
                           if (success) {
                             toast({
@@ -362,7 +351,7 @@ export default function NostrConnectModal({ isOpen, onClose }: NostrConnectModal
                               description: "You're now connected with your NOSTR identity",
                               variant: "default"
                             });
-                            localStorage.removeItem('temp_amber_pubkey');
+                            setManualPubkey('');
                             onClose();
                           } else {
                             toast({

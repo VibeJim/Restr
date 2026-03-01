@@ -11,7 +11,12 @@ import type {
   NostrListingContent,
   NostrProfile,
   NostrUser,
-  NostrZapRequest
+  NostrZapRequest,
+  NostrReview,
+  NostrReviewContent,
+  NostrComment,
+  NostrCalendarEvent,
+  NostrCalendarEventContent
 } from '../types/nostr';
 
 // Check if window.nostr is available (NIP-07 browser extension)
@@ -109,10 +114,8 @@ export const verifyEvent = (event: NostrEvent): boolean => {
 export const createRelayConnections = (relays: string[] = RELAYS): Map<string, WebSocket> => {
   const connections = new Map<string, WebSocket>();
   
-  // Filter for valid relay URLs
   const validRelays = relays.filter(relay => {
     try {
-      // Simple check that relay is a valid WebSocket URL
       return relay.startsWith('wss://') || relay.startsWith('ws://');
     } catch (error) {
       console.error(`Invalid relay URL: ${relay}`);
@@ -120,18 +123,7 @@ export const createRelayConnections = (relays: string[] = RELAYS): Map<string, W
     }
   });
   
-  // Limit to working relays that are known to be more reliable
-  const priorityRelays = validRelays.filter(relay => 
-    relay.includes('relay.damus.io') || 
-    relay.includes('nos.lol') || 
-    relay.includes('relay.nostr.band')
-  );
-  
-  // Use priority relays if available, otherwise use all valid relays
-  const selectedRelays = priorityRelays.length > 0 ? priorityRelays : validRelays;
-  
-  // Only use a maximum of 3 relays to avoid overwhelming the browser
-  const limitedRelays = selectedRelays.slice(0, 3);
+  const limitedRelays = validRelays.slice(0, 5);
   
   console.log(`Creating connections to ${limitedRelays.length} relays:`, limitedRelays);
   
@@ -147,83 +139,143 @@ export const createRelayConnections = (relays: string[] = RELAYS): Map<string, W
   return connections;
 };
 
-// Send an event to relays
-export const publishEvent = async (
-  event: NostrEvent,
-  relays: string[] = RELAYS,
-  timeoutMs: number = 15000 // Increased timeout
-): Promise<string[]> => {
-  console.log(`Attempting to publish event to ${relays.length} relays:`, {
-    id: event.id,
-    kind: event.kind,
-    pubkey: event.pubkey,
-    relays
-  });
-  
-  // We'll try a few approaches to increase reliability
-  let allSuccessfulRelays: string[] = [];
-  
-  // First attempt: try to publish to all relays in parallel
-  try {
-    const parallelResults = await Promise.allSettled(
-      relays.map(relay => publishToSingleRelay(event, relay, timeoutMs))
-    );
-    
-    // Add successful relays
-    parallelResults.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value) {
-        allSuccessfulRelays.push(relays[index]);
-      }
-    });
-    
-    // If we got at least one success, return early
-    if (allSuccessfulRelays.length > 0) {
-      console.log(`Successfully published to ${allSuccessfulRelays.length} relays in parallel`);
-      return allSuccessfulRelays;
-    }
-  } catch (error) {
-    console.error('Error in parallel publishing attempt:', error);
-  }
-  
-  // If parallel attempt failed completely, try sequentially with a smaller set of common relays
-  console.log('Parallel attempt failed. Trying sequentially with common relays...');
-  // Always use our two selected relays for consistency
-  const commonRelays = [
-    'wss://relay.damus.io', 
-    'wss://nos.lol'
-  ];
-  
-  if (commonRelays.length === 0 && relays.length > 0) {
-    // If no common relays were in the original list, use the first one from the original list
-    commonRelays.push(relays[0]);
-  }
-  
-  for (const relay of commonRelays) {
+// Tests a relay by connecting and sending a small subscription, waiting for EOSE.
+// Returns true if the relay responds within the timeout.
+export const testRelayHealth = (relay: string, timeoutMs: number = 5000): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    let done = false;
+    let socket: WebSocket | null = null;
+
+    const finish = (healthy: boolean) => {
+      if (done) return;
+      done = true;
+      try {
+        if (socket) {
+          socket.onopen = null;
+          socket.onmessage = null;
+          socket.onerror = null;
+          socket.onclose = null;
+          if (socket.readyState === WebSocket.OPEN) socket.close();
+        }
+      } catch (_) { /* ignore cleanup errors */ }
+      resolve(healthy);
+    };
+
     try {
-      const success = await publishToSingleRelay(event, relay, timeoutMs);
-      if (success) {
-        allSuccessfulRelays.push(relay);
-        // Even one success is enough to provide a good user experience
-        break;
-      }
-    } catch (error) {
-      console.error(`Error in sequential publishing to ${relay}:`, error);
+      socket = new WebSocket(relay);
+
+      socket.onopen = () => {
+        const subId = '_health_' + Math.random().toString(36).slice(2, 8);
+        // Ask for 1 recent metadata event — every relay should have at least one
+        socket!.send(JSON.stringify(['REQ', subId, { kinds: [0], limit: 1 }]));
+      };
+
+      socket.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          // EOSE means the relay is alive, connected, and responsive to queries
+          if (Array.isArray(data) && data[0] === 'EOSE') {
+            console.log(`[RELAY-HEALTH] ${relay} is healthy (got EOSE)`);
+            finish(true);
+          }
+        } catch (_) { /* ignore parse errors */ }
+      };
+
+      socket.onerror = () => finish(false);
+      socket.onclose = () => finish(false);
+    } catch (_) {
+      finish(false);
     }
-  }
-  
-  console.log(`Publication results: ${allSuccessfulRelays.length}/${relays.length} relays successful`);
-  if (allSuccessfulRelays.length > 0) {
-    console.log('Successfully published to relays:', allSuccessfulRelays);
-  } else {
-    console.warn('Failed to publish to any relays - will still count the event as locally published');
-    // Even if all relay publications fail, we return a success with empty relays
-    // This allows the app to continue with optimistic updates
-  }
-  
-  return allSuccessfulRelays;
+
+    setTimeout(() => {
+      if (!done) {
+        console.warn(`[RELAY-HEALTH] ${relay} timed out after ${timeoutMs}ms`);
+        finish(false);
+      }
+    }, timeoutMs);
+  });
 };
 
-// Helper function to publish to a single relay with robust connection handling
+// Returns the subset of relays that pass a health check, ordered by response time.
+export const getHealthyRelays = async (relays: string[] = RELAYS, timeoutMs: number = 5000): Promise<string[]> => {
+  const healthy: string[] = [];
+  const results = await Promise.allSettled(
+    relays.map(async (relay) => {
+      const start = Date.now();
+      const ok = await testRelayHealth(relay, timeoutMs);
+      return { relay, ok, ms: Date.now() - start };
+    })
+  );
+
+  results
+    .filter((r): r is PromiseFulfilledResult<{ relay: string; ok: boolean; ms: number }> =>
+      r.status === 'fulfilled' && r.value.ok
+    )
+    .sort((a, b) => a.value.ms - b.value.ms)
+    .forEach(r => healthy.push(r.value.relay));
+
+  console.log(`[RELAY-HEALTH] ${healthy.length}/${relays.length} relays healthy:`, healthy);
+  return healthy;
+};
+
+// Verifies an event exists on a relay by subscribing for it by ID and waiting for EOSE.
+// Returns true if the relay returned the event before EOSE.
+export const verifyEventOnRelay = (eventId: string, relay: string, timeoutMs: number = 8000): Promise<boolean> => {
+  return new Promise<boolean>((resolve) => {
+    let done = false;
+    let found = false;
+    let socket: WebSocket | null = null;
+
+    const finish = (success: boolean) => {
+      if (done) return;
+      done = true;
+      try {
+        if (socket) {
+          socket.onopen = null;
+          socket.onmessage = null;
+          socket.onerror = null;
+          socket.onclose = null;
+          if (socket.readyState === WebSocket.OPEN) socket.close();
+        }
+      } catch (_) { /* ignore */ }
+      resolve(success);
+    };
+
+    try {
+      socket = new WebSocket(relay);
+
+      socket.onopen = () => {
+        const subId = '_verify_' + Math.random().toString(36).slice(2, 8);
+        socket!.send(JSON.stringify(['REQ', subId, { ids: [eventId], limit: 1 }]));
+      };
+
+      socket.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (Array.isArray(data)) {
+            if (data[0] === 'EVENT' && data[2]?.id === eventId) {
+              found = true;
+            }
+            if (data[0] === 'EOSE') {
+              console.log(`[VERIFY] ${relay}: event ${eventId.slice(0, 8)}... ${found ? 'CONFIRMED' : 'NOT FOUND'}`);
+              finish(found);
+            }
+          }
+        } catch (_) { /* ignore */ }
+      };
+
+      socket.onerror = () => finish(false);
+      socket.onclose = () => finish(false);
+    } catch (_) {
+      finish(false);
+    }
+
+    setTimeout(() => finish(false), timeoutMs);
+  });
+};
+
+// Publishes an event to a single relay, waiting for an explicit OK confirmation.
+// The Nostr OK message format is ["OK", <event_id>, <accepted: boolean>, <message>].
 const publishToSingleRelay = async (
   event: NostrEvent,
   relay: string,
@@ -233,53 +285,33 @@ const publishToSingleRelay = async (
     let hasResolved = false;
     let socket: WebSocket | null = null;
     
-    // Function to clean up and resolve
     const cleanup = (success: boolean) => {
-      if (!hasResolved) {
-        hasResolved = true;
-        
-        // Clean up socket if it exists
-        if (socket) {
-          try {
-            socket.onopen = null;
-            socket.onmessage = null;
-            socket.onerror = null;
-            socket.onclose = null;
-            
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.close();
-            }
-          } catch (e) {
-            console.error(`Error closing connection to ${relay}:`, e);
-          }
+      if (hasResolved) return;
+      hasResolved = true;
+      
+      if (socket) {
+        try {
+          socket.onopen = null;
+          socket.onmessage = null;
+          socket.onerror = null;
+          socket.onclose = null;
+          if (socket.readyState === WebSocket.OPEN) socket.close();
+        } catch (e) {
+          console.error(`Error closing connection to ${relay}:`, e);
         }
-        
-        resolve(success);
       }
+      
+      resolve(success);
     };
     
     try {
-      console.log(`Attempting to connect to relay: ${relay}`);
-      
-      // Create a new WebSocket connection
       socket = new WebSocket(relay);
       
-      // Set up event handlers
       socket.onopen = () => {
         console.log(`Connected to relay: ${relay}`);
         try {
-          // Send the event
-          const message = JSON.stringify(['EVENT', event]);
-          socket.send(message);
+          socket!.send(JSON.stringify(['EVENT', event]));
           console.log(`Event sent to ${relay}`);
-          
-          // Set a backup success timer (some relays don't send OK messages)
-          setTimeout(() => {
-            if (!hasResolved) {
-              console.log(`Assuming success for ${relay} (no errors after sending)`);
-              cleanup(true);
-            }
-          }, 2000);
         } catch (error) {
           console.error(`Error sending event to ${relay}:`, error);
           cleanup(false);
@@ -288,16 +320,26 @@ const publishToSingleRelay = async (
       
       socket.onmessage = (message) => {
         try {
-          console.log(`Received message from ${relay}:`, message.data);
           const data = JSON.parse(message.data);
           
-          // Check for successful event publication
           if (Array.isArray(data) && data[0] === 'OK' && data[1] === event.id) {
-            console.log(`Event ${event.id} confirmed by ${relay}`);
-            cleanup(true);
-          }
-          // Check for error notices
-          else if (Array.isArray(data) && data[0] === 'NOTICE') {
+            const accepted = data[2] === true;
+            const reason = data[3] || '';
+
+            if (accepted) {
+              console.log(`[PUBLISH] ${relay}: event ACCEPTED`);
+              cleanup(true);
+            } else {
+              // "duplicate:" means the relay already has this event — that's still a success
+              if (typeof reason === 'string' && reason.toLowerCase().includes('duplicate')) {
+                console.log(`[PUBLISH] ${relay}: duplicate (relay already has it) — counting as success`);
+                cleanup(true);
+              } else {
+                console.warn(`[PUBLISH] ${relay}: event REJECTED — ${reason}`);
+                cleanup(false);
+              }
+            }
+          } else if (Array.isArray(data) && data[0] === 'NOTICE') {
             console.warn(`Notice from ${relay}:`, data[1]);
           }
         } catch (error) {
@@ -305,20 +347,12 @@ const publishToSingleRelay = async (
         }
       };
       
-      socket.onerror = (error) => {
-        console.error(`Connection error with ${relay}:`, error);
-        cleanup(false);
-      };
+      socket.onerror = () => cleanup(false);
+      socket.onclose = () => cleanup(false);
       
-      socket.onclose = () => {
-        console.log(`Connection closed with ${relay}`);
-        cleanup(false);
-      };
-      
-      // Set global timeout
       setTimeout(() => {
         if (!hasResolved) {
-          console.warn(`Timeout reached for ${relay}`);
+          console.warn(`[PUBLISH] ${relay}: timeout after ${timeoutMs}ms — no OK received`);
           cleanup(false);
         }
       }, timeoutMs);
@@ -328,6 +362,30 @@ const publishToSingleRelay = async (
       cleanup(false);
     }
   });
+};
+
+// Publishes an event to relays with health-checking and verification.
+export const publishEvent = async (
+  event: NostrEvent,
+  relays: string[] = RELAYS,
+  timeoutMs: number = 15000
+): Promise<string[]> => {
+  console.log(`[PUBLISH] Starting publish for event ${event.id?.slice(0, 8)}... (kind ${event.kind}) to ${relays.length} relays`);
+  
+  // Publish to all relays in parallel — the OK check is strict now
+  const results = await Promise.allSettled(
+    relays.map(relay => publishToSingleRelay(event, relay, timeoutMs))
+  );
+  
+  const successfulRelays: string[] = [];
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value) {
+      successfulRelays.push(relays[index]);
+    }
+  });
+  
+  console.log(`[PUBLISH] ${successfulRelays.length}/${relays.length} relays confirmed:`, successfulRelays);
+  return successfulRelays;
 };
 
 // Subscribe to events from relays
@@ -941,6 +999,45 @@ export const publishListing = async (
   }
 };
 
+// Publishes a kind 0 (metadata/profile) event signed with a provided secret key.
+export const publishProfileWithKey = async (
+  profile: { name?: string; about?: string; picture?: string },
+  secretKey: string,
+  publicKey: string,
+  relays: string[] = RELAYS
+): Promise<boolean> => {
+  try {
+    const content = JSON.stringify(profile);
+    const secretKeyBytes = hexToBytes(secretKey);
+
+    const eventTemplate = {
+      kind: NOSTR_KINDS.METADATA,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [] as string[][],
+      content,
+      pubkey: publicKey
+    };
+
+    const signedEvent = finalizeEvent(eventTemplate, secretKeyBytes);
+
+    const fullEvent: NostrEvent = {
+      id: signedEvent.id,
+      pubkey: signedEvent.pubkey,
+      created_at: signedEvent.created_at,
+      kind: signedEvent.kind,
+      tags: signedEvent.tags,
+      content: signedEvent.content,
+      sig: signedEvent.sig
+    };
+
+    const successfulRelays = await publishEvent(fullEvent, relays);
+    return successfulRelays.length > 0;
+  } catch (error) {
+    console.error('Error publishing profile with key:', error);
+    return false;
+  }
+};
+
 // Sign an event with a secret key (instead of using browser extension)
 const signEventWithSecretKey = (event: NostrEvent, secretKey: string): string => {
   try {
@@ -1507,147 +1604,225 @@ export const getUser = async (
   }
 };
 
-// Post a review for a listing
+// Posts a review as a kind 1 (text note) event with a 'restr-review' tag.
+// Kind 1 is universally accepted by all relays, unlike custom kinds (30000+).
 export const postReview = async (
   listingId: string,
   rating: number,
   content: string,
   relays: string[] = RELAYS
-): Promise<{ reviewId: string | null }> => {
+): Promise<{ reviewId: string | null; confirmedRelays: number; totalRelays: number }> => {
   try {
-    console.log(`Posting review for listing ${listingId}`);
+    console.log(`[REVIEW] Posting review for listing ${listingId}`);
     
-    // Create the review content
     const reviewContent: NostrReviewContent = {
       listingId,
       rating,
       content
     };
 
-    // Create the event tags
+    // Using kind 1 with a distinguishing tag for maximum relay compatibility.
+    // Every relay stores kind 1 and indexes its tags.
     const tags: string[][] = [
+      ['t', 'restr-review'],
       ['e', listingId, '', 'root'],
-      ['k', NOSTR_KINDS.REVIEW.toString()],
       ['rating', rating.toString()]
     ];
     
-    console.log('Creating review event with tags:', tags);
-    
-    // Create and sign the event
     const event = await createSignedEvent(
-      NOSTR_KINDS.REVIEW, 
+      NOSTR_KINDS.TEXT_NOTE,
       JSON.stringify(reviewContent), 
       tags
     );
 
     if (!event) {
-      console.error("Failed to create signed review event");
-      return { reviewId: null };
+      console.error("[REVIEW] Failed to create signed review event");
+      return { reviewId: null, confirmedRelays: 0, totalRelays: 0 };
     }
     
-    console.log('Review event created:', event.id);
+    console.log(`[REVIEW] Event created: ${event.id}`);
     
-    // Publish the event to relays with a longer timeout
-    const successfulRelays = await publishEvent(event, relays, 20000);
-    
-    if (successfulRelays.length === 0) {
-      console.log("No relays succeeded in publishing, but returning event ID anyway for optimistic UI update");
-    } else {
-      console.log(`Successfully published to ${successfulRelays.length} relays`);
+    // Persist to localStorage as a safety net
+    try {
+      const stored = JSON.parse(localStorage.getItem('restr_reviews') || '[]');
+      stored.push({
+        id: event.id,
+        pubkey: event.pubkey,
+        created_at: event.created_at,
+        content: reviewContent,
+        tags: event.tags,
+        sig: event.sig,
+        listingId
+      });
+      localStorage.setItem('restr_reviews', JSON.stringify(stored));
+    } catch (storageErr) {
+      console.error('[REVIEW] localStorage save error:', storageErr);
     }
+
+    // Health-check relays before publishing
+    console.log('[REVIEW] Running relay health checks...');
+    const healthyRelays = await getHealthyRelays(relays, 4000);
+    
+    const targetRelays = healthyRelays.length > 0 ? healthyRelays : relays;
+    console.log(`[REVIEW] Publishing to ${targetRelays.length} relays:`, targetRelays);
+
+    const successfulRelays = await publishEvent(event, targetRelays, 20000);
+    
+    // Verify the event exists on relays by reading it back
+    let verified = 0;
+    if (successfulRelays.length > 0) {
+      console.log('[REVIEW] Verifying event on relays...');
+      const verifyResults = await Promise.allSettled(
+        successfulRelays.map(relay => verifyEventOnRelay(event.id, relay, 6000))
+      );
+      verified = verifyResults.filter(
+        r => r.status === 'fulfilled' && r.value === true
+      ).length;
+      console.log(`[REVIEW] Verified on ${verified}/${successfulRelays.length} relays`);
+    }
+
+    const confirmedCount = Math.max(successfulRelays.length, verified);
+    console.log(`[REVIEW] Final result: ${confirmedCount} confirmed relays`);
     
     return { 
-      reviewId: event.id
+      reviewId: event.id,
+      confirmedRelays: confirmedCount,
+      totalRelays: targetRelays.length
     };
   } catch (error) {
-    console.error('Error posting review:', error);
-    return { reviewId: null };
+    console.error('[REVIEW] Error posting review:', error);
+    return { reviewId: null, confirmedRelays: 0, totalRelays: 0 };
   }
 };
 
-// Get reviews for a listing
+// Loads locally-stored reviews for a given listing as a fallback for relay delays.
+const getLocalReviews = (listingId: string): NostrReview[] => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('restr_reviews') || '[]');
+    return stored
+      .filter((r: any) => r.listingId === listingId)
+      .map((r: any) => ({
+        id: r.id,
+        pubkey: r.pubkey,
+        created_at: r.created_at,
+        content: r.content,
+        tags: r.tags,
+        sig: r.sig
+      }));
+  } catch {
+    return [];
+  }
+};
+
+// Fetches reviews for a listing from relays, merged with localStorage fallback.
+// Uses a single kind 1 subscription with an EOSE-based collection window so
+// slower relays have time to send data after faster ones finish.
 export const getReviews = async (
   listingId: string,
   relays: string[] = RELAYS
 ): Promise<NostrReview[]> => {
   return new Promise((resolve) => {
-    console.log(`Fetching reviews for listing ${listingId}`);
+    console.log(`[REVIEWS] Fetching reviews for listing ${listingId}`);
     
-    const filter: NostrFilter = {
+    const reviews: Map<string, NostrReview> = new Map();
+    let resolved = false;
+    let collectionTimer: NodeJS.Timeout | null = null;
+
+    // Seed with locally-stored reviews so they appear immediately
+    const localReviews = getLocalReviews(listingId);
+    localReviews.forEach(r => reviews.set(r.id, r));
+
+    const finalize = () => {
+      if (resolved) return;
+      resolved = true;
+      if (collectionTimer) clearTimeout(collectionTimer);
+
+      const sorted = Array.from(reviews.values()).sort(
+        (a, b) => b.created_at - a.created_at
+      );
+      console.log(`[REVIEWS] Resolved with ${sorted.length} reviews for listing ${listingId}`);
+      unsubscribeNew();
+      unsubscribeLegacy();
+      resolve(sorted);
+    };
+
+    const handleEvent = (event: NostrEvent) => {
+      try {
+        const content = JSON.parse(event.content) as NostrReviewContent;
+
+        // Validate it looks like a real review
+        if (!content.rating || !content.listingId) return;
+
+        const review: NostrReview = {
+          id: event.id,
+          pubkey: event.pubkey,
+          created_at: event.created_at,
+          content,
+          tags: event.tags,
+          sig: event.sig
+        };
+        
+        reviews.set(event.id, review);
+        console.log(`[REVIEWS] Got review ${event.id.slice(0, 8)}... from relay`);
+      } catch (error) {
+        console.error('[REVIEWS] Error processing review event:', error);
+      }
+    };
+
+    const handleEose = () => {
+      // On first EOSE, start a collection window to let slower relays respond.
+      // Subsequent EOSE calls from other relays are harmless.
+      if (!collectionTimer && !resolved) {
+        console.log('[REVIEWS] First EOSE received, starting 3s collection window');
+        collectionTimer = setTimeout(finalize, 3000);
+      }
+    };
+
+    // Primary filter: kind 1 reviews with the 'restr-review' tag (new format)
+    const newFilter: NostrFilter = {
+      kinds: [NOSTR_KINDS.TEXT_NOTE],
+      "#t": ["restr-review"],
+      "#e": [listingId],
+      limit: 50
+    };
+
+    // Legacy filter: kind 30002 reviews (old format, for backward compat)
+    const legacyFilter: NostrFilter = {
       kinds: [NOSTR_KINDS.REVIEW],
       "#e": [listingId],
       limit: 50
     };
-    
-    console.log('Using filter:', filter);
-    
-    const reviews: Map<string, NostrReview> = new Map();
-    let reviewsFetched = false;
-    let timeoutId: NodeJS.Timeout;
-    
-    const { unsubscribe } = subscribeToEvents(
-      filter,
-      async (event) => {
-        try {
-          console.log(`Received review event: ${event.id}`);
-          const content = JSON.parse(event.content) as NostrReviewContent;
-          
-          // Create the review object
-          const review: NostrReview = {
-            id: event.id,
-            pubkey: event.pubkey,
-            created_at: event.created_at,
-            content,
-            tags: event.tags,
-            sig: event.sig
-          };
-          
-          // Try to fetch the author profile
-          try {
-            const profile = await getUserProfile(event.pubkey, relays);
-            if (profile) {
-              review.profile = profile;
-            }
-          } catch (error) {
-            console.error('Error fetching review author profile:', error);
-          }
-          
-          reviews.set(event.id, review);
-          console.log(`Successfully processed review ${event.id}`);
-        } catch (error) {
-          console.error('Error processing review event:', error);
-        }
-      },
-      () => {
-        console.log('EOSE received for reviews');
-        reviewsFetched = true;
-        checkDone();
-      },
-      relays
+
+    const { unsubscribe: unsubscribeNew } = subscribeToEvents(
+      newFilter, handleEvent, handleEose, relays
     );
-    
-    const checkDone = () => {
-      if (reviewsFetched) {
-        clearTimeout(timeoutId);
-        
-        // Sort reviews by creation time (newest first)
-        const sortedReviews = Array.from(reviews.values()).sort(
-          (a, b) => b.created_at - a.created_at
-        );
-        
-        console.log(`Found ${sortedReviews.length} reviews for listing ${listingId}`);
-        unsubscribe();
-        resolve(sortedReviews);
-      }
-    };
-    
-    // Set timeout for the entire operation
-    timeoutId = setTimeout(() => {
-      console.log('Timeout reached while fetching reviews');
-      reviewsFetched = true;
-      checkDone();
-    }, 8000);
+
+    const { unsubscribe: unsubscribeLegacy } = subscribeToEvents(
+      legacyFilter, handleEvent, handleEose, relays
+    );
+
+    // Hard timeout: resolve with whatever we have after 10 seconds
+    setTimeout(finalize, 10000);
   });
+};
+
+// Fetches author profiles for reviews that are missing them.
+// Called separately so it doesn't block review display.
+export const enrichReviewsWithProfiles = async (
+  reviews: NostrReview[],
+  relays: string[] = RELAYS
+): Promise<NostrReview[]> => {
+  const enriched = await Promise.all(
+    reviews.map(async (review) => {
+      if (review.profile) return review;
+      try {
+        const profile = await getUserProfile(review.pubkey, relays);
+        if (profile) return { ...review, profile };
+      } catch { /* ignore */ }
+      return review;
+    })
+  );
+  return enriched;
 };
 
 // Initialize window.nostr type

@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from '@/hooks/use-toast';
 import { useNostr } from '@/context/nostr-provider';
 import { NostrReview, NostrListing } from '@/types/nostr';
-import { getReviews, postReview } from '@/lib/nostr';
+import { getReviews, postReview, enrichReviewsWithProfiles } from '@/lib/nostr';
 import { DEFAULT_PROFILE_IMAGE } from '@/lib/constants';
 import { Rating } from '@/components/ui/rating';
 
@@ -15,6 +15,13 @@ interface ListingReviewsProps {
   listing: NostrListing;
   onReviewsLoaded?: (count: number) => void;
 }
+
+// Returns the best display name from a Nostr profile, falling back through fields.
+const getDisplayName = (profile?: { name?: string; display_name?: string }): string => {
+  if (!profile) return 'Anonymous';
+  const name = profile.display_name?.trim() || profile.name?.trim();
+  return name || 'Anonymous';
+};
 
 export default function ListingReviews({ listing, onReviewsLoaded }: ListingReviewsProps) {
   const { isConnected, user } = useNostr();
@@ -28,6 +35,7 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
     loadReviews();
   }, [listing.id]);
 
+  // Fetches reviews from relays, then asynchronously enriches them with author profiles.
   const loadReviews = async () => {
     setIsLoading(true);
     try {
@@ -36,6 +44,12 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
       
       if (onReviewsLoaded) {
         onReviewsLoaded(fetchedReviews.length);
+      }
+
+      // Fetch author profiles in the background so reviews render fast
+      if (fetchedReviews.length > 0) {
+        const withProfiles = await enrichReviewsWithProfiles(fetchedReviews);
+        setReviews(withProfiles);
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
@@ -84,16 +98,10 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
       const result = await postReview(listing.id, rating, trimmedReview);
       
       if (result.reviewId) {
-        // Store the review ID and content in localStorage for optimistic UI
-        localStorage.setItem(`last_review_${listing.id}`, result.reviewId);
-        localStorage.setItem(`last_review_content_${listing.id}`, trimmedReview);
-        localStorage.setItem(`last_review_rating_${listing.id}`, rating.toString());
-        
-        // Clear the input fields
         setReviewText('');
         setRating(0);
         
-        // Update the UI with an optimistic review
+        // Optimistic review uses the connected user's profile for correct name display
         if (user) {
           const optimisticReview: NostrReview = {
             id: result.reviewId,
@@ -105,48 +113,56 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
               content: trimmedReview
             },
             tags: [
+              ['t', 'restr-review'],
               ['e', listing.id, '', 'root'],
-              ['k', '30002'],
               ['rating', rating.toString()]
             ],
             sig: '',
             profile: user.profile
           };
           
-          // Add the optimistic review to the list
           const updatedReviews = [optimisticReview, ...reviews];
           setReviews(updatedReviews);
           
-          // Update review count
           if (onReviewsLoaded) {
             onReviewsLoaded(updatedReviews.length);
           }
         }
         
-        toast({
-          title: 'Review Posted',
-          description: 'Your review has been published to the NOSTR network.',
-          variant: 'default',
-        });
-        
-        // Try to reload reviews from the network
-        try {
-          const fetchedReviews = await getReviews(listing.id);
-          if (fetchedReviews.length > 0) {
-            setReviews(fetchedReviews);
-            
-            if (onReviewsLoaded) {
-              onReviewsLoaded(fetchedReviews.length);
-            }
-          }
-        } catch (err) {
-          console.log('Error refreshing reviews, keeping optimistic UI:', err);
+        if (result.confirmedRelays > 0) {
+          toast({
+            title: 'Review Published',
+            description: `Confirmed on ${result.confirmedRelays} of ${result.totalRelays} relays. Visible to all users.`,
+            variant: 'default',
+          });
+        } else {
+          toast({
+            title: 'Review Saved Locally',
+            description: 'Relays are temporarily unreachable. Your review is saved and will sync when they come back online.',
+            variant: 'default',
+          });
         }
+        
+        // Refresh reviews from the network after a delay to pick up the newly published one
+        setTimeout(async () => {
+          try {
+            const fetchedReviews = await getReviews(listing.id);
+            if (fetchedReviews.length > 0) {
+              const withProfiles = await enrichReviewsWithProfiles(fetchedReviews);
+              setReviews(withProfiles);
+              if (onReviewsLoaded) {
+                onReviewsLoaded(withProfiles.length);
+              }
+            }
+          } catch (err) {
+            console.log('Error refreshing reviews, keeping optimistic UI:', err);
+          }
+        }, 3000);
       } else {
         toast({
-          title: 'Warning',
-          description: 'Your review was created but may not have reached all relays. It will appear locally.',
-          variant: 'default',
+          title: 'Error',
+          description: 'Failed to sign the review. Make sure your NOSTR extension is connected.',
+          variant: 'destructive',
         });
       }
     } catch (error) {
@@ -212,7 +228,6 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
       {/* Reviews List */}
       <div className="space-y-6">
         {isLoading ? (
-          // Loading skeleton
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex space-x-4 animate-pulse">
               <Skeleton className="h-10 w-10 rounded-full" />
@@ -228,38 +243,41 @@ export default function ListingReviews({ listing, onReviewsLoaded }: ListingRevi
             <p>Be the first to leave a review!</p>
           </div>
         ) : (
-          reviews.map((review) => (
-            <div key={review.id} className="bg-white p-4 rounded-lg border border-neutral-200">
-              <div className="flex items-start space-x-4">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={review.profile?.picture || DEFAULT_PROFILE_IMAGE} />
-                  <AvatarFallback>
-                    {review.profile?.name?.[0] || 'A'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {review.profile?.name || 'Anonymous'}
-                      </p>
-                      <p className="text-sm text-neutral-500">
-                        {formatDate(review.created_at)}
-                      </p>
+          reviews.map((review) => {
+            const displayName = getDisplayName(review.profile);
+            return (
+              <div key={review.id} className="bg-white p-4 rounded-lg border border-neutral-200">
+                <div className="flex items-start space-x-4">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={review.profile?.picture || DEFAULT_PROFILE_IMAGE} />
+                    <AvatarFallback>
+                      {displayName[0] || 'A'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {displayName}
+                        </p>
+                        <p className="text-sm text-neutral-500">
+                          {formatDate(review.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        <Rating value={review.content.rating} readOnly />
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <Rating value={review.content.rating} readOnly />
-                    </div>
+                    <p className="mt-2 text-neutral-700 whitespace-pre-wrap">
+                      {review.content.content}
+                    </p>
                   </div>
-                  <p className="mt-2 text-neutral-700 whitespace-pre-wrap">
-                    {review.content.content}
-                  </p>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
   );
-} 
+}

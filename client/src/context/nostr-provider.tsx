@@ -7,7 +7,7 @@ import {
   bech32ToHex 
 } from '@/lib/nostr';
 import { NostrProfile, NostrUser } from '@/types/nostr';
-import { DEFAULT_PROFILE_IMAGE, RELAYS, NOSTR_KINDS } from '@/lib/constants';
+import { RELAYS, NOSTR_KINDS } from '@/lib/constants';
 
 interface NostrContextType {
   user: NostrUser | null;
@@ -48,6 +48,46 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
       return method;
     }
     return 'unknown';
+  };
+
+  // Normalizes a pubkey input (hex or npub) into a valid 64-char hex key.
+  const normalizePubkey = (pubkey: string): string | null => {
+    const trimmedPubkey = pubkey.trim();
+    const converted = trimmedPubkey.startsWith('npub1') ? bech32ToHex(trimmedPubkey) : trimmedPubkey;
+    if (!converted) {
+      return null;
+    }
+
+    const normalized = converted.toLowerCase();
+    return /^[a-f0-9]{64}$/.test(normalized) ? normalized : null;
+  };
+
+  // Normalizes profile fields so UI gets stable name/picture values.
+  const normalizeProfile = (profile: NostrProfile | null): NostrProfile | undefined => {
+    if (!profile) {
+      return undefined;
+    }
+
+    const normalizedName = typeof profile.name === 'string' ? profile.name.trim() : '';
+    const normalizedDisplayName = typeof profile.display_name === 'string' ? profile.display_name.trim() : '';
+    const normalizedPicture = typeof profile.picture === 'string' ? profile.picture.trim() : '';
+
+    return {
+      ...profile,
+      name: normalizedName || undefined,
+      display_name: normalizedDisplayName || undefined,
+      picture: normalizedPicture || undefined
+    };
+  };
+
+  // Builds a consistent user object for either NIP-07 or NIP-46 logins.
+  const buildUser = (pubkey: string, profile: NostrProfile | null, loginMethod: string | null): NostrUser => {
+    return {
+      pubkey,
+      npub: hexToBech32(pubkey),
+      profile: normalizeProfile(profile),
+      loginMethod: safeLoginMethod(loginMethod)
+    };
   };
 
   // Set up WebSocket connection for mobile login
@@ -289,19 +329,16 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
         
         // If we have a stored pubkey, try to get the user profile
         if (storedPubkey) {
-          const profile = await getUserProfile(storedPubkey);
-          
-          if (profile) {
-            const npub = hexToBech32(storedPubkey);
-            
-            setUser({
-              pubkey: storedPubkey,
-              npub: npub,
-              profile,
-              loginMethod: safeLoginMethod(loginMethod)
-            });
-            setIsConnected(true);
+          const normalizedPubkey = normalizePubkey(storedPubkey);
+          if (!normalizedPubkey) {
+            localStorage.removeItem('nostr_pubkey');
+            localStorage.removeItem('nostr_login_method');
+            return;
           }
+
+          const profile = await getUserProfile(normalizedPubkey);
+          setUser(buildUser(normalizedPubkey, profile, loginMethod));
+          setIsConnected(true);
         }
       } catch (error) {
         console.error('Error checking connection:', error);
@@ -330,23 +367,19 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
         return false;
       }
       
+      const normalizedPubkey = normalizePubkey(pubkey);
+      if (!normalizedPubkey) {
+        console.error('Received invalid pubkey from extension');
+        return false;
+      }
+
       // Save pubkey to local storage
-      localStorage.setItem('nostr_pubkey', pubkey);
+      localStorage.setItem('nostr_pubkey', normalizedPubkey);
       localStorage.setItem('nostr_login_method', 'nip07');
       
       // Get user profile
-      const profile = await getUserProfile(pubkey);
-      
-      // Create user object
-      const user: NostrUser = {
-        pubkey,
-        npub: hexToBech32(pubkey),
-        profile: profile || {
-          name: 'Anonymous',
-          picture: DEFAULT_PROFILE_IMAGE
-        },
-        loginMethod: 'nip07'
-      };
+      const profile = await getUserProfile(normalizedPubkey);
+      const user = buildUser(normalizedPubkey, profile, 'nip07');
       
       setUser(user);
       setIsConnected(true);
@@ -369,27 +402,24 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
         console.error('[CONNECT-DEBUG] No pubkey provided for NIP-46 connection');
         return false;
       }
+
+      const normalizedPubkey = normalizePubkey(pubkey);
+      if (!normalizedPubkey) {
+        console.error('[CONNECT-DEBUG] Invalid pubkey format for NIP-46 connection');
+        return false;
+      }
       
       // Save pubkey to local storage
-      localStorage.setItem('nostr_pubkey', pubkey);
+      localStorage.setItem('nostr_pubkey', normalizedPubkey);
       localStorage.setItem('nostr_login_method', 'nip46');
       console.log('[CONNECT-DEBUG] Saved pubkey and login method to localStorage');
       
       // Get user profile
       console.log('[CONNECT-DEBUG] Fetching user profile...');
-      const profile = await getUserProfile(pubkey);
+      const profile = await getUserProfile(normalizedPubkey);
       console.log('[CONNECT-DEBUG] Profile fetch result:', profile ? 'Success' : 'Failed');
       
-      // Create user object
-      const user: NostrUser = {
-        pubkey,
-        npub: hexToBech32(pubkey),
-        profile: profile || {
-          name: 'Amber User',
-          picture: DEFAULT_PROFILE_IMAGE
-        },
-        loginMethod: 'nip46'
-      };
+      const user = buildUser(normalizedPubkey, profile, 'nip46');
       
       console.log('[CONNECT-DEBUG] Setting user and connection state');
       setUser(user);
@@ -423,27 +453,14 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
       // If we have a stored NIP-46 login, use it
       if (storedPubkey && loginMethod === 'nip46' && !isConnected) {
         console.log('[LOGIN-DEBUG] Found stored NIP-46 pubkey, attempting to reconnect');
-        // Get user profile
-        const profile = await getUserProfile(storedPubkey);
-        
-        if (profile) {
-          console.log('[LOGIN-DEBUG] Successfully retrieved profile for stored pubkey');
-          const npub = hexToBech32(storedPubkey);
-          
-          // Create user object
-          const user: NostrUser = {
-            pubkey: storedPubkey,
-            npub,
-            profile,
-            loginMethod: 'nip46'
-          };
-          
-          setUser(user);
+        const normalizedStoredPubkey = normalizePubkey(storedPubkey);
+        if (normalizedStoredPubkey) {
+          // Get user profile
+          const profile = await getUserProfile(normalizedStoredPubkey);
+          setUser(buildUser(normalizedStoredPubkey, profile, 'nip46'));
           setIsConnected(true);
           console.log('[LOGIN-DEBUG] Successfully reconnected with stored NIP-46 pubkey');
           return true;
-        } else {
-          console.log('[LOGIN-DEBUG] Failed to get profile for stored pubkey');
         }
       }
       
@@ -454,47 +471,34 @@ export const NostrProvider = ({ children }: NostrProviderProps) => {
         
         if (pubkey) {
           console.log('[LOGIN-DEBUG] Retrieved pubkey from extension:', pubkey.substring(0, 8) + '...');
+          const normalizedPubkey = normalizePubkey(pubkey);
+          if (!normalizedPubkey) {
+            console.log('[LOGIN-DEBUG] Extension returned invalid pubkey');
+            return false;
+          }
           // Get the stored pubkey
           const storedPubkey = localStorage.getItem('nostr_pubkey');
+          const normalizedStoredPubkey = storedPubkey ? normalizePubkey(storedPubkey) : null;
           
           // If the pubkeys don't match or we don't have a stored pubkey, update the user
-          if (pubkey !== storedPubkey) {
+          if (normalizedPubkey !== normalizedStoredPubkey) {
             console.log('[LOGIN-DEBUG] Pubkey from extension different from stored, updating user');
             // Get user profile
-            const profile = await getUserProfile(pubkey);
-            
-            // Create user object
-            const user: NostrUser = {
-              pubkey,
-              npub: hexToBech32(pubkey),
-              profile: profile || {
-                name: 'Anonymous',
-                picture: DEFAULT_PROFILE_IMAGE
-              },
-              loginMethod: 'nip07'
-            };
+            const profile = await getUserProfile(normalizedPubkey);
+            const user = buildUser(normalizedPubkey, profile, 'nip07');
             
             // Save pubkey to local storage
-            localStorage.setItem('nostr_pubkey', pubkey);
+            localStorage.setItem('nostr_pubkey', normalizedPubkey);
             localStorage.setItem('nostr_login_method', 'nip07');
             
             setUser(user);
             setIsConnected(true);
             console.log('[LOGIN-DEBUG] Successfully connected with NIP-07 extension');
             return true;
-          } else if (storedPubkey && !isConnected) {
+          } else if (normalizedStoredPubkey && !isConnected) {
             console.log('[LOGIN-DEBUG] Pubkey matches stored value, reconnecting user');
-            const profile = await getUserProfile(pubkey);
-            
-            setUser({
-              pubkey,
-              npub: hexToBech32(pubkey),
-              profile: profile || {
-                name: 'Anonymous',
-                picture: DEFAULT_PROFILE_IMAGE
-              },
-              loginMethod: 'nip07'
-            });
+            const profile = await getUserProfile(normalizedPubkey);
+            setUser(buildUser(normalizedPubkey, profile, 'nip07'));
             setIsConnected(true);
             return true;
           }
